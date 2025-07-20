@@ -1,5 +1,5 @@
 import express from "express";
-import { UserRole } from "@prisma/client";
+import { USER_ROLE } from "@prisma/client";
 
 import RoleValidation from "../../middlewares/RoleValidation";
 import { UserDataController } from "./user.controller";
@@ -7,37 +7,28 @@ const router = express.Router();
 
 router.get(
   "/all-users",
-  RoleValidation(UserRole.ADMIN),
+  RoleValidation(USER_ROLE.admin),
   UserDataController.getAllUsers
 );
 router.get(
   "/my-profile-info",
-  RoleValidation(UserRole.ADMIN, UserRole.USER),
+  RoleValidation(USER_ROLE.admin, USER_ROLE.account, USER_ROLE.dispatch, USER_ROLE.marchant, USER_ROLE.warehouse),
   UserDataController.myProfileInfo
 );
 router.patch(
-  "/make-admin/:id",
-  RoleValidation(UserRole.ADMIN),
-  UserDataController.makeUserToAdmin
+  "/change-role/:id",
+  RoleValidation(USER_ROLE.admin),
+  UserDataController.changeRole
 );
+
 router.patch(
-  "/make-user/:id",
-  RoleValidation(UserRole.ADMIN),
-  UserDataController.makeAdminToUser
-);
-router.patch(
-  "/block-user/:id",
-  RoleValidation(UserRole.ADMIN),
-  UserDataController.blockUser
-);
-router.patch(
-  "/make-user-active/:id",
-  RoleValidation(UserRole.ADMIN),
-  UserDataController.makeActive
+  "/change-status/:id",
+  RoleValidation(USER_ROLE.admin),
+  UserDataController.changeUserStatus
 );
 router.delete(
   "/delete-user/:id",
-  RoleValidation(UserRole.ADMIN),
+  RoleValidation(USER_ROLE.admin),
   UserDataController.deleteUser
 );
 

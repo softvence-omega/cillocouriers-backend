@@ -8,6 +8,11 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+enum UserStatus {
+  ACTIVE
+  BLOCKED
+}
+
 enum USER_ROLE {
   admin
   marchant
@@ -22,53 +27,65 @@ enum ParcelType {
 }
 
 model User {
-  id                      String    @id @default(uuid())
-  Name                    String
+  id                      String           @id @default(uuid())
+  name                    String
   businessName            String
-  Address_Pickup_Location String
-  Phone                   String
-  Email                   String
-  Role                    USER_ROLE
-  Password                String
-
-  addresses       Address[]
-  customers       Customer[]
-  parcels         AddParcel[]
-  restrictedUsers RestrictedUser[]
-  BankAccount     BankAccount?
-  PaypalAccount   PaypalAccount?
-  CardPayment     CardPayment?
+  address_Pickup_Location String
+  phone                   String
+  email                   String           @unique
+  role                    USER_ROLE
+  password                String
+  status                  UserStatus       @default(ACTIVE)
+  addresses               Address[]
+  customers               Customer[]
+  parcels                 AddParcel[]
+  restrictedUsers         RestrictedUser[]
+  BankAccount             BankAccount?
+  PaypalAccount           PaypalAccount?
+  CardPayment             CardPayment?
+  isDeleted               Boolean          @default(false)
+  createdAt               DateTime         @default(now())
+  updatedAt               DateTime         @updatedAt
 }
 
 model BankAccount {
-  id                String @id @default(uuid())
-  marchentId        String @unique
+  id                String   @id @default(uuid())
+  marchentId        String   @unique
   accountHolderName String
   accountNumber     String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  isDeleted         Boolean  @default(false)
 
   user User @relation(fields: [marchentId], references: [id])
 }
 
 model PaypalAccount {
-  id         String @id @default(uuid())
-  marchentId String @unique
+  id         String   @id @default(uuid())
+  marchentId String   @unique
   email      String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  isDeleted  Boolean  @default(false)
 
   user User @relation(fields: [marchentId], references: [id])
 }
 
 model CardPayment {
-  id         String @id @default(uuid())
-  marchentId String @unique
+  id         String   @id @default(uuid())
+  marchentId String   @unique
   cardNumber String
   expiryDate String
   cvc        String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  isDeleted  Boolean  @default(false)
 
   user User @relation(fields: [marchentId], references: [id])
 }
 
 model Address {
-  id              String  @id @default(uuid())
+  id              String   @id @default(uuid())
   marchentId      String
   addressName     String
   streetName      String
@@ -77,18 +94,24 @@ model Address {
   country         String
   phoneNumber     String
   additionalNotes String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  isDeleted       Boolean  @default(false)
 
   user User @relation(fields: [marchentId], references: [id])
 }
 
 model Customer {
-  id              String @id @default(uuid())
+  id              String   @id @default(uuid())
   marchentId      String
   Name            String
   Email           String
   Phone           String
   ShippingAddress String
   BillingAddress  String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  isDeleted       Boolean  @default(false)
 
   user User @relation(fields: [marchentId], references: [id])
 }
@@ -113,6 +136,9 @@ model RestrictedUser {
   placeOrders        Boolean
   accessSavedAddress Boolean
   useDefaultAddress  Boolean
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  isDeleted          Boolean   @default(false)
 
   user User @relation(fields: [marchentId], references: [id])
 }

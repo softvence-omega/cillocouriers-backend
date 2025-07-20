@@ -5,24 +5,24 @@ import { UserDataServices } from "./user.service";
 import { Request } from "express";
 
 const getAllUsers = catchAsync(async (req, res) => {
-  // console.log(req.query);
-  const { searchTerm, ...options } = req.query;
-  // console.log(options);
-  const result = await UserDataServices.getAllUsers(req.query, options);
+  const result = await UserDataServices.getAllUsers(req.query);
 
-  //   console.log(req.user);
   sendResponse(res, {
     statusCode: status.OK,
     success: true,
-    message: "All User Fetched Successfuly.",
+    message: "All users fetched successfully.",
     data: result,
+
   });
 });
+
+
 const myProfileInfo = catchAsync(async (req: Request & { user?: any }, res) => {
+
+
 
   const result = await UserDataServices.myProfileInfo(req.user.id);
 
-  //   console.log(req.user);
   sendResponse(res, {
     statusCode: status.OK,
     success: true,
@@ -30,58 +30,34 @@ const myProfileInfo = catchAsync(async (req: Request & { user?: any }, res) => {
     data: result,
   });
 });
-const makeUserToAdmin = catchAsync(async (req, res) => {
+const changeRole = catchAsync(async (req, res) => {
   const { id } = req.params;
 
-  const result = await UserDataServices.makeUserToAdmin(id);
+  const result = await UserDataServices.changeRole(id, req.body);
 
   //   console.log(req.user);
   sendResponse(res, {
     statusCode: status.OK,
     success: true,
-    message: "Make Admin Successfuly.",
+    message: "Role Changed Successfuly.",
     data: result,
   });
 });
-const makeAdminToUser = catchAsync(async (req, res) => {
+
+const changeUserStatus = catchAsync(async (req, res) => {
   const { id } = req.params;
 
-  const result = await UserDataServices.makeAdminToUser(id);
+  const result = await UserDataServices.changeUserStatus(id, req.body);
 
   //   console.log(req.user);
   sendResponse(res, {
     statusCode: status.OK,
     success: true,
-    message: "Make User Successfuly.",
+    message: " Status Changed Successfuly.",
     data: result,
   });
 });
-const blockUser = catchAsync(async (req, res) => {
-  const { id } = req.params;
 
-  const result = await UserDataServices.blockUser(id);
-
-  //   console.log(req.user);
-  sendResponse(res, {
-    statusCode: status.OK,
-    success: true,
-    message: " User Blocked Successfuly.",
-    data: result,
-  });
-});
-const makeActive = catchAsync(async (req, res) => {
-  const { id } = req.params;
-
-  const result = await UserDataServices.makeActive(id);
-
-  //   console.log(req.user);
-  sendResponse(res, {
-    statusCode: status.OK,
-    success: true,
-    message: " User Actived Successfuly.",
-    data: result,
-  });
-});
 const deleteUser = catchAsync(async (req, res) => {
   const { id } = req.params;
 
@@ -98,10 +74,8 @@ const deleteUser = catchAsync(async (req, res) => {
 
 export const UserDataController = {
   getAllUsers,
-  makeUserToAdmin,
-  makeAdminToUser,
-  blockUser,
-  makeActive,
+  changeRole,
+  changeUserStatus,
   deleteUser,
   myProfileInfo
 };

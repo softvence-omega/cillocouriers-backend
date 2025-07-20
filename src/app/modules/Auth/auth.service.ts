@@ -1,10 +1,11 @@
-import { User, UserStatus } from "@prisma/client";
+import { User, USER_ROLE, UserStatus } from "@prisma/client";
 import prisma from "../../../shared/prisma";
 import bcrypt from "bcrypt";
 import config from "../../../config";
 import { Secret } from "jsonwebtoken";
 import { jwtHelpers } from "../../../helpers/jwtHelpers";
-// import { Secret } from "jsonwebtoken";
+import AppError from "../../Errors/AppError";
+import status from "http-status";
 
 const createUser = async (payload: User) => {
   // console.log(payload);
@@ -17,7 +18,7 @@ const createUser = async (payload: User) => {
   // console.log(isUserExist);
 
   if (isUserExist) {
-    throw new Error("User Already Exist");
+    throw new AppError(status.CONFLICT, "User Already Exist");
   }
 
   const hashPassword = await bcrypt.hash(payload.password, 12);
@@ -25,8 +26,10 @@ const createUser = async (payload: User) => {
 
   const userData = {
     ...payload,
+    role: USER_ROLE.marchant, 
     password: hashPassword,
   };
+
 
   const result = await prisma.user.create({
     data: {
@@ -36,12 +39,12 @@ const createUser = async (payload: User) => {
       id: true,
       name: true,
       email: true,
-      profileUrl: true,
       role: true,
-      status: true,
     },
   });
   return result;
+
+
 };
 const loginUser = async (payload: { email: string; password: string }) => {
   const userData = await prisma.user.findUnique({
@@ -50,7 +53,6 @@ const loginUser = async (payload: { email: string; password: string }) => {
       status: UserStatus.ACTIVE,
     },
   });
-  console.log(userData);
   if (!userData) {
     throw new Error("User not found..");
   }
@@ -62,14 +64,13 @@ const loginUser = async (payload: { email: string; password: string }) => {
   // console.log(isCorrectPassword);
 
   if (!isCorrectPassword) {
-    throw new Error("Your Password is incorrect..");
+    throw new AppError(status.UNAUTHORIZED, "Your password is incorrect.");
   }
 
   const accessToken = jwtHelpers.generateToken(
     {
       id: userData.id,
       name: userData.name,
-      profileUrl: userData.profileUrl,
       email: userData.email,
       role: userData.role,
     },

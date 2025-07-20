@@ -5,6 +5,7 @@ import status from "http-status";
 import { UserService } from "./auth.service";
 
 const createUser: RequestHandler = catchAsync(async (req, res) => {
+  // console.log(req.body);
   const result = await UserService.createUser(req.body);
 
   sendResponse(res, {
