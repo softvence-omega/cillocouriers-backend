@@ -1,0 +1,118 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum USER_ROLE {
+  admin
+  marchant
+  dispatch
+  account
+  warehouse
+}
+
+enum ParcelType {
+  REGULAR
+  EXPRESS
+}
+
+model User {
+  id                      String    @id @default(uuid())
+  Name                    String
+  businessName            String
+  Address_Pickup_Location String
+  Phone                   String
+  Email                   String
+  Role                    USER_ROLE
+  Password                String
+
+  addresses       Address[]
+  customers       Customer[]
+  parcels         AddParcel[]
+  restrictedUsers RestrictedUser[]
+  BankAccount     BankAccount?
+  PaypalAccount   PaypalAccount?
+  CardPayment     CardPayment?
+}
+
+model BankAccount {
+  id                String @id @default(uuid())
+  marchentId        String @unique
+  accountHolderName String
+  accountNumber     String
+
+  user User @relation(fields: [marchentId], references: [id])
+}
+
+model PaypalAccount {
+  id         String @id @default(uuid())
+  marchentId String @unique
+  email      String
+
+  user User @relation(fields: [marchentId], references: [id])
+}
+
+model CardPayment {
+  id         String @id @default(uuid())
+  marchentId String @unique
+  cardNumber String
+  expiryDate String
+  cvc        String
+
+  user User @relation(fields: [marchentId], references: [id])
+}
+
+model Address {
+  id              String  @id @default(uuid())
+  marchentId      String
+  addressName     String
+  streetName      String
+  cityOrSuburb    String
+  postalCode      String
+  country         String
+  phoneNumber     String
+  additionalNotes String?
+
+  user User @relation(fields: [marchentId], references: [id])
+}
+
+model Customer {
+  id              String @id @default(uuid())
+  marchentId      String
+  Name            String
+  Email           String
+  Phone           String
+  ShippingAddress String
+  BillingAddress  String
+
+  user User @relation(fields: [marchentId], references: [id])
+}
+
+model AddParcel {
+  id          String     @id @default(uuid())
+  marchentId  String
+  type        ParcelType
+  Name        String
+  Weight      String
+  Description String
+  Customer    String
+
+  user User @relation(fields: [marchentId], references: [id])
+}
+
+model RestrictedUser {
+  id                 String    @id @default(uuid())
+  marchentId         String
+  email              String
+  role               USER_ROLE
+  placeOrders        Boolean
+  accessSavedAddress Boolean
+  useDefaultAddress  Boolean
+
+  user User @relation(fields: [marchentId], references: [id])
+}
