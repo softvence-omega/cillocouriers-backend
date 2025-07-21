@@ -120,9 +120,27 @@ const deleteCustomar = async (id: string, marchentId: string) => {
 
 }
 
+
+const getSingleCustomer = async (id: string, marchentId: string) => {
+    const isExist = await prisma.customer.findFirst({
+        where: {
+            id,
+            marchentId,
+            isDeleted: false
+        }
+    })
+
+    if (!isExist) {
+        throw new AppError(status.NOT_FOUND, 'Customer not found!')
+    }
+    return isExist
+}
+
+
 export const customarService = {
     addCustomer,
     getMySelfCustomers,
     updateCustomar,
-    deleteCustomar
+    deleteCustomar,
+    getSingleCustomer
 }

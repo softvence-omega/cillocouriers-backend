@@ -5,15 +5,21 @@ import RoleValidation from "../../middlewares/RoleValidation";
 import { addressController } from "./address.controller";
 const router = express.Router();
 
-router.post(
-    "/add-address",
-    RoleValidation(USER_ROLE.marchant),
-    addressController.addAddrss
-);
+
 router.get(
     "/myself-addresses",
     RoleValidation(USER_ROLE.marchant),
     addressController.getMySelfAddress
+);
+
+router.get("/single-address/:id", RoleValidation(USER_ROLE.marchant),
+    addressController.getSingleAddress)
+
+
+router.post(
+    "/add-address",
+    RoleValidation(USER_ROLE.marchant),
+    addressController.addAddrss
 );
 
 router.patch(

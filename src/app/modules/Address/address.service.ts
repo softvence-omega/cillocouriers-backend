@@ -122,9 +122,26 @@ const deleteAddress = async (id: string, marchentId: string) => {
 
 }
 
+const getSingleAddress = async (id: string, marchentId: string) => {
+    const isExist = await prisma.address.findFirst({
+        where: {
+            id,
+            marchentId,
+            isDeleted: false
+
+        }
+    })
+
+    if (!isExist) {
+        throw new AppError(status.NOT_FOUND, 'Address not found!')
+    }
+    return isExist
+}
+
 export const addressService = {
     addAddrss,
     getMySelfAddress,
     updateAddress,
-    deleteAddress
+    deleteAddress,
+    getSingleAddress
 }

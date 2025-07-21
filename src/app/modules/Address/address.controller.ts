@@ -22,8 +22,8 @@ const addAddrss = catchAsync(async (req: Request & { user?: any }, res) => {
 });
 const updateAddress = catchAsync(async (req: Request & { user?: any }, res) => {
 
-   
-    
+
+
     const result = await addressService.updateAddress(req.params.id, req.user.id, req.body);
 
     sendResponse(res, {
@@ -36,8 +36,8 @@ const updateAddress = catchAsync(async (req: Request & { user?: any }, res) => {
 });
 const deleteAddress = catchAsync(async (req: Request & { user?: any }, res) => {
 
-   
-    
+
+
     const result = await addressService.deleteAddress(req.params.id, req.user.id);
 
     sendResponse(res, {
@@ -51,7 +51,7 @@ const deleteAddress = catchAsync(async (req: Request & { user?: any }, res) => {
 const getMySelfAddress = catchAsync(async (req: Request & { user?: any }, res) => {
 
 
-    const result = await addressService.getMySelfAddress(req.user.id,req.query);
+    const result = await addressService.getMySelfAddress(req.user.id, req.query);
 
     sendResponse(res, {
         statusCode: status.OK,
@@ -61,11 +61,29 @@ const getMySelfAddress = catchAsync(async (req: Request & { user?: any }, res) =
 
     });
 });
+const getSingleAddress = catchAsync(async (req: Request & { user?: any }, res) => {
+
+
+    const result = await addressService.getSingleAddress(req.params.id, req.user.id);
+
+    sendResponse(res, {
+        statusCode: status.OK,
+        success: true,
+        message: "Single Address Fetched successfully.",
+        data: result,
+
+    });
+});
+
+
+
+
 
 
 export const addressController = {
     addAddrss,
     getMySelfAddress,
     updateAddress,
-    deleteAddress
+    deleteAddress,
+    getSingleAddress
 }
