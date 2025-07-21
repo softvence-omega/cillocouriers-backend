@@ -48,23 +48,23 @@ const getAllUsers = async (options: any) => {
 
 
 const myProfileInfo = async (id: string) => {
-  const result = await prisma.user.findUnique({
-    where: {
-      id: id
-    },
-    select: {
-      id: true,
-      name: true,
-      businessName: true,
-      address_Pickup_Location: true,
-      phone: true,
-      email: true,
-      role: true,
-      createdAt: true,
+ const result = await prisma.user.findUnique({
+  where: { id },
+  select: {
+    id: true,
+    name: true,
+    businessName: true,
+    address_Pickup_Location: true,
+    phone: true,
+    email: true,
+    role: true,
+    createdAt: true,
+  },
+});
 
-    }
-  })
-  return result
+
+
+return result;
 };
 
 const changeRole = async (id: string, data: { role: USER_ROLE }) => {
@@ -82,21 +82,21 @@ const changeRole = async (id: string, data: { role: USER_ROLE }) => {
     }
 
     const updatedUser = await tx.user.update({
-      where: { id:isUserExist.id },
+      where: { id: isUserExist.id },
       data: {
         role: data.role,
       },
       select: {
-      id: true,
-      name: true,
-      businessName: true,
-      address_Pickup_Location: true,
-      phone: true,
-      email: true,
-      role: true,
-      createdAt: true,
+        id: true,
+        name: true,
+        businessName: true,
+        address_Pickup_Location: true,
+        phone: true,
+        email: true,
+        role: true,
+        createdAt: true,
 
-    }
+      }
     });
 
     return updatedUser;
@@ -110,7 +110,7 @@ const changeRole = async (id: string, data: { role: USER_ROLE }) => {
 const changeUserStatus = async (id: string, data: { status: UserStatus }) => {
   const result = await prisma.$transaction(async (tx) => {
     const isUserExist = await tx.user.findUnique({
-      where: { id:id, isDeleted:false},
+      where: { id: id, isDeleted: false },
     });
 
     if (!isUserExist) {
@@ -149,7 +149,7 @@ const deleteUser = async (id: string) => {
     const isUserExist = await tx.user.findUnique({
       where: {
         id: id,
-        isDeleted:false
+        isDeleted: false
       },
     });
 
@@ -177,7 +177,7 @@ const deleteUser = async (id: string) => {
 export const UserDataServices = {
   getAllUsers,
   changeRole,
- changeUserStatus,
+  changeUserStatus,
   deleteUser,
   myProfileInfo,
 };
