@@ -4,6 +4,7 @@ export const ReviewSearchableFields: string[] = [
   "excerp",
 ];
 export const UserSearchableFields: string[] = ["name", "email"];
+export const CustomerSearchableFields: string[] = ["Name", "Email","Phone"];
 export const AddressSearchableFields: string[] = [
   "addressName",
   "streetName",
