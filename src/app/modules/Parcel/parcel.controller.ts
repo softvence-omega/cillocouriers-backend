@@ -44,7 +44,6 @@ const getSingleParcel = catchAsync(
   async (req: Request & { user?: any }, res) => {
     const result = await ParcelService.getSingleParcel(
       req.params.id,
-      req.user.id
     );
 
     sendResponse(res, {
@@ -70,11 +69,27 @@ const deleteParcel = catchAsync(
     });
   }
 );
+const changeParcelStatus = catchAsync(
+  async (req: Request & { user?: any }, res) => {
+    const result = await ParcelService.changeParcelStatus(
+      req.params.id,
+      req.body
+    );
+
+    sendResponse(res, {
+      statusCode: status.OK,
+      success: true,
+      message: "Parcel status changed successfully.",
+      data: result,
+    });
+  }
+);
 
 export const ParcelController = {
   addParcel,
   myParcels,
   getSingleParcel,
   deleteParcel,
-  getAllParcels
+  getAllParcels,
+  changeParcelStatus
 };

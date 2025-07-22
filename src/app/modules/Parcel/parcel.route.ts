@@ -19,7 +19,7 @@ router.get(
 
 router.get(
   "/get-single/:id",
-  RoleValidation(USER_ROLE.marchant),
+  RoleValidation(USER_ROLE.marchant, USER_ROLE.admin),
   ParcelController.getSingleParcel
 );
 router.post(
@@ -33,5 +33,11 @@ router.delete(
   RoleValidation(USER_ROLE.marchant),
   ParcelController.deleteParcel
 );
+
+router.patch(
+  "/change-status/:id",
+  RoleValidation(USER_ROLE.admin),
+  ParcelController.changeParcelStatus
+)
 
 export const ParcelRoutes = router;

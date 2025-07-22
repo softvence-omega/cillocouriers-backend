@@ -1,4 +1,4 @@
-import { AddParcel } from "@prisma/client";
+import { AddParcel, DeliveryStatus, ParcelStatus } from "@prisma/client";
 import prisma from "../../../shared/prisma";
 import AppError from "../../Errors/AppError";
 import status from "http-status";
@@ -176,11 +176,10 @@ const myParcels = async (marchentId: string, options: any) => {
   };
 };
 
-const getSingleParcel = async (id: string, marchentId: string) => {
+const getSingleParcel = async (id: string) => {
   const result = await prisma.addParcel.findFirst({
     where: {
       id,
-      marchentId,
       isDeleted: false,
     },
     include: {
@@ -221,10 +220,139 @@ const deleteParcel = async (id: string, marchentId: string) => {
   return null;
 };
 
+// const changeParcelStatus = async (
+//   id: string,
+//   data: { deliveryStatus: ParcelDeliveryStatus } // তুমি enum ইউজ করছো ধরছি
+// ) => {
+//   // Step 1: Check if parcel exists
+//   const parcel = await prisma.addParcel.findUnique({
+//     where: { id, isDeleted: false },
+//   });
+
+//   if (!parcel) {
+//     throw new AppError(404, "Parcel not found!");
+//   }
+
+//   // Step 2: Map deliveryStatus to status
+//   let updatedStatus: ParcelStatus | undefined;
+
+//   switch (data.deliveryStatus) {
+//     case "AWAITING_PICKUP":
+//       updatedStatus = "PROCESSING";
+//       break;
+//     case "DELIVERED":
+//       updatedStatus = "COMPLETED";
+//       break;
+//     case "NOT_DELIVERED":
+//       updatedStatus = "CANCELLED";
+//       break;
+//     default:
+//       updatedStatus = parcel.status; // unchanged or optionally throw error
+//   }
+
+//   // Step 3: Update parcel
+//   const updatedParcel = await prisma.addParcel.update({
+//     where: { id },
+//     data: {
+//       deliveryStatus: data.deliveryStatus,
+//       status: updatedStatus,
+      
+//     },
+//   });
+
+//   return updatedParcel;
+// };
+
+
+
+const DeliveryStatusOrder: Record<DeliveryStatus, number> = {
+  PENDING: 1,
+  AWAITING_PICKUP: 2,
+  IN_TRANSIT: 3,
+  DELIVERED: 4,
+  NOT_DELIVERED: 5, // Final status
+};
+
+// ----------------------------------
+// STATUS MAPPING:
+// কোন deliveryStatus দিলে parcel.status কী হবে
+// ----------------------------------
+
+const DeliveryToParcelStatusMap: Partial<Record<DeliveryStatus, ParcelStatus>> = {
+  AWAITING_PICKUP: ParcelStatus.PROCESSING,
+  DELIVERED: ParcelStatus.COMPLETED,
+  NOT_DELIVERED: ParcelStatus.CANCELLED,
+};
+
+// ----------------------------------
+// MAIN FUNCTION: Parcel Status চেঞ্জ করা
+// ----------------------------------
+const changeParcelStatus = async (
+  id: string,
+  data: { deliveryStatus: DeliveryStatus }
+) => {
+  // Step 1: Find parcel
+  const parcel = await prisma.addParcel.findUnique({
+    where: { id, isDeleted: false },
+  });
+
+  if (!parcel) {
+    throw new AppError(404, "Parcel not found!");
+  }
+
+  const currentDeliveryStatus = parcel.deliveryStatus as DeliveryStatus;
+
+  // Step 2: Prevent changes after DELIVERED
+  if (currentDeliveryStatus === "DELIVERED") {
+    throw new AppError(400, "Parcel is already delivered. Cannot change status.");
+  }
+
+  // Step 3: Get & validate new status (sanitize)
+  const newDeliveryStatus = data.deliveryStatus.trim() as DeliveryStatus;
+
+  // Step 4: Validate enum value
+  if (!Object.values(DeliveryStatus).includes(newDeliveryStatus)) {
+    throw new AppError(400, "Invalid delivery status!");
+  }
+
+  const currentOrder = DeliveryStatusOrder[currentDeliveryStatus];
+  const nextOrder = DeliveryStatusOrder[newDeliveryStatus];
+
+  // Step 5: Prevent backward status change
+  if (nextOrder < currentOrder) {
+    throw new AppError(
+      400,
+      `Cannot move from ${currentDeliveryStatus} to ${newDeliveryStatus}`
+    );
+  }
+
+  // Step 6: Prevent same status
+  if (nextOrder === currentOrder) {
+    throw new AppError(400, `Parcel is already in ${newDeliveryStatus} status`);
+  }
+
+  // Step 7: Determine ParcelStatus
+  const updatedParcelStatus =
+    DeliveryToParcelStatusMap[newDeliveryStatus] ?? parcel.status;
+
+  // Step 8: Update parcel
+  const updatedParcel = await prisma.addParcel.update({
+    where: { id },
+    data: {
+      deliveryStatus: newDeliveryStatus,
+      status: updatedParcelStatus,
+    },
+  });
+
+  return updatedParcel;
+};
+
+
 export const ParcelService = {
   addParcel,
   myParcels,
   getSingleParcel,
   deleteParcel,
   getAllParcels,
+  changeParcelStatus
 };
