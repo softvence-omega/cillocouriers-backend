@@ -26,6 +26,27 @@ enum ParcelType {
   EXPRESS
 }
 
+enum ParcelStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  CANCELLED
+}
+
+enum DeliveryStatus {
+  PENDING
+  AWAITING_PICKUP
+  IN_TRANSIT
+  DELIVERED
+  NOT_DELIVERED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  REFUNDED
+}
+
 model User {
   id                      String           @id @default(uuid())
   name                    String
@@ -98,7 +119,8 @@ model Address {
   updatedAt       DateTime @updatedAt
   isDeleted       Boolean  @default(false)
 
-  user User @relation(fields: [marchentId], references: [id])
+  user      User        @relation(fields: [marchentId], references: [id])
+  AddParcel AddParcel[]
 }
 
 model Customer {
@@ -113,19 +135,33 @@ model Customer {
   updatedAt       DateTime @updatedAt
   isDeleted       Boolean  @default(false)
 
-  user User @relation(fields: [marchentId], references: [id])
+  user      User        @relation(fields: [marchentId], references: [id])
+  AddParcel AddParcel[]
 }
 
 model AddParcel {
-  id          String     @id @default(uuid())
-  marchentId  String
-  type        ParcelType
-  Name        String
-  Weight      String
-  Description String
-  Customer    String
-
-  user User @relation(fields: [marchentId], references: [id])
+  id             String         @id @default(uuid())
+  marchentId     String
+  type           ParcelType
+  name           String
+  weight         String
+  description    String
+  customerId     String
+  addressId      String
+  invoice        String?
+  notes          String?
+  pickupDate     DateTime?
+  trackingId     String?        @unique
+  status         ParcelStatus   @default(PENDING)
+  deliveryStatus DeliveryStatus @default(PENDING)
+  amount         Float?
+  paymentStatus  PaymentStatus  @default(PENDING)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  isDeleted      Boolean        @default(false)
+  address        Address        @relation(fields: [addressId], references: [id])
+  user           User           @relation(fields: [marchentId], references: [id])
+  customar       Customer       @relation(fields: [customerId], references: [id])
 }
 
 model RestrictedUser {
