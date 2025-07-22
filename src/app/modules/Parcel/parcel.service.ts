@@ -78,6 +78,60 @@ const addParcel = async (data: AddParcel & { addressId: string }) => {
   return result;
 };
 
+const getAllParcels = async (options: any) => {
+  const { page, limit, skip, sortBy, sortOrder } =
+    paginationHelper.calculatePagination(options);
+
+  const whereConditions = buildDynamicFilters(options, ParcelSearchableFields);
+
+  const [result, total] = await Promise.all([
+    prisma.addParcel.findMany({
+      where: {
+        isDeleted: false,
+        ...whereConditions,
+      },
+      skip,
+      take: limit,
+      orderBy: {
+        [sortBy]: sortOrder,
+      },
+      include: {
+        user: {
+          select: {
+            name: true,
+            businessName: true,
+            address_Pickup_Location: true,
+            phone: true,
+            email: true,
+            role: true,
+            status: true,
+          },
+        },
+        customar: true,
+        address: true,
+      },
+    }),
+    prisma.addParcel.count({
+      where: {
+        isDeleted: false,
+        ...whereConditions,
+      },
+    }),
+  ]);
+
+  const meta = {
+    page,
+    limit,
+    total,
+    totalPages: Math.ceil(total / limit),
+  };
+
+  return {
+    data: result,
+    meta,
+  };
+};
+
 const myParcels = async (marchentId: string, options: any) => {
   const { page, limit, skip, sortBy, sortOrder } =
     paginationHelper.calculatePagination(options);
@@ -105,7 +159,7 @@ const myParcels = async (marchentId: string, options: any) => {
     },
     include: {
       customar: true,
-      address:true
+      address: true,
     },
   });
 
@@ -122,10 +176,55 @@ const myParcels = async (marchentId: string, options: any) => {
   };
 };
 
+const getSingleParcel = async (id: string, marchentId: string) => {
+  const result = await prisma.addParcel.findFirst({
+    where: {
+      id,
+      marchentId,
+      isDeleted: false,
+    },
+    include: {
+      customar: true,
+      address: true,
+    },
+  });
 
+  if (!result) {
+    throw new AppError(status.NOT_FOUND, "Parcel Not Found!");
+  }
 
+  return result;
+};
+const deleteParcel = async (id: string, marchentId: string) => {
+  const parcel = await prisma.addParcel.findFirst({
+    where: {
+      id,
+      marchentId,
+      isDeleted: false,
+    },
+    include: {
+      customar: true,
+      address: true,
+    },
+  });
+
+  if (!parcel) {
+    throw new AppError(status.NOT_FOUND, "Parcel Not Found!");
+  }
+
+  await prisma.addParcel.update({
+    where: {
+      id: id,
+    },
+    data: { isDeleted: true },
+  });
+  return null;
+};
 
 export const ParcelService = {
   addParcel,
   myParcels,
+  getSingleParcel,
+  deleteParcel,
+  getAllParcels,
 };

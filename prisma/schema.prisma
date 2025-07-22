@@ -16,6 +16,9 @@ enum UserStatus {
 enum USER_ROLE {
   admin
   marchant
+}
+
+enum RESTRICTED_USER_ROLE {
   dispatch
   account
   warehouse
@@ -168,7 +171,7 @@ model RestrictedUser {
   id                 String    @id @default(uuid())
   marchentId         String
   email              String
-  role               USER_ROLE
+  role               RESTRICTED_USER_ROLE
   placeOrders        Boolean
   accessSavedAddress Boolean
   useDefaultAddress  Boolean
