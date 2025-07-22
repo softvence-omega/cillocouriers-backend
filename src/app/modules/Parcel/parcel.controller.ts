@@ -19,7 +19,20 @@ const addParcel = catchAsync(async (req: Request & { user?: any }, res) => {
     data: result,
   });
 });
+const myParcels = catchAsync(async (req: Request & { user?: any }, res) => {
+
+
+  const result = await ParcelService.myParcels(req.user.id,req.query);
+
+  sendResponse(res, {
+    statusCode: status.OK,
+    success: true,
+    message: "My Parcels fetched successfully.",
+    data: result,
+  });
+});
 
 export const ParcelController = {
   addParcel,
+  myParcels
 };

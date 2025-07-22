@@ -3,37 +3,9 @@ import prisma from "../../../shared/prisma";
 import AppError from "../../Errors/AppError";
 import status from "http-status";
 import { generateUniqueTrackingId } from "../../../helpers/generateUniqueTrackingId";
-
-// const addParcel = async (data: AddParcel) => {
-//   // console.log('add parcel', data);
-
-//   const isCustomarExist = await prisma.customer.findFirst({
-//     where: {
-//       id: data.customerId,
-//       marchentId: data.marchentId,
-//     },
-//   });
-
-//   if (!isCustomarExist) {
-//     throw new AppError(status.NOT_FOUND, "Customer not found!");
-//   }
-
-//   const isAddressExist = await prisma.address.findFirst({
-//     where: {
-//       id: data.addressId,
-//       marchentId: data.marchentId,
-//     },
-//   });
-
-//   if(!isAddressExist){
-//     throw new AppError(status.NOT_FOUND, 'Address not found!')
-//   }
-
-//   console.log(isCustomarExist);
-
-// };
-
-// Random tracking ID generator
+import { paginationHelper } from "../../../helpers/paginationHelper";
+import { buildDynamicFilters } from "../../../helpers/buildDynamicFilters";
+import { ParcelSearchableFields } from "../../constants/searchableFieldConstant";
 
 const addParcel = async (data: AddParcel & { addressId: string }) => {
   // 1. কাস্টমার আছে কিনা চেক
@@ -106,8 +78,54 @@ const addParcel = async (data: AddParcel & { addressId: string }) => {
   return result;
 };
 
+const myParcels = async (marchentId: string, options: any) => {
+  const { page, limit, skip, sortBy, sortOrder } =
+    paginationHelper.calculatePagination(options);
+
+  const whereConditions = buildDynamicFilters(options, ParcelSearchableFields);
+
+  const total = await prisma.addParcel.count({
+    where: {
+      marchentId,
+      isDeleted: false,
+      ...whereConditions,
+    },
+  });
+
+  const result = await prisma.addParcel.findMany({
+    where: {
+      marchentId,
+      isDeleted: false,
+      ...whereConditions,
+    },
+    skip,
+    take: limit,
+    orderBy: {
+      [sortBy]: sortOrder,
+    },
+    include: {
+      customar: true,
+      address:true
+    },
+  });
+
+  const meta = {
+    page,
+    limit,
+    total,
+    totalPages: Math.ceil(total / limit),
+  };
+
+  return {
+    data: result,
+    meta,
+  };
+};
+
+
 
 
 export const ParcelService = {
   addParcel,
+  myParcels,
 };
