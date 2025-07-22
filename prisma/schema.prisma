@@ -64,48 +64,41 @@ model User {
   customers               Customer[]
   parcels                 AddParcel[]
   restrictedUsers         RestrictedUser[]
-  BankAccount             BankAccount?
-  PaypalAccount           PaypalAccount?
-  CardPayment             CardPayment?
   isDeleted               Boolean          @default(false)
   createdAt               DateTime         @default(now())
   updatedAt               DateTime         @updatedAt
+  PaymentMethod           PaymentMethod[]
 }
 
-model BankAccount {
-  id                String   @id @default(uuid())
-  marchentId        String   @unique
-  accountHolderName String
-  accountNumber     String
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  isDeleted         Boolean  @default(false)
+model PaymentMethod {
+  id             String       @id @default(uuid())
+  marchentId     String
+  type           PaymentType  // BANK | PAYPAL | CARD
 
-  user User @relation(fields: [marchentId], references: [id])
+  // Common Fields
+  accountHolder  String?       // Used in BANK, CARD
+  accountNumber  String?       // Used in BANK
+  bsbNumber      String?       // Used in BANK
+
+  // PayPal
+  email          String?       // Used in PAYPAL
+
+  // Card
+  cardNumber     String?       // Encrypted
+  expiryDate     String?       // MM/YY
+  cvc            String?       // Encrypted
+
+  isDeleted      Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  user           User          @relation(fields: [marchentId], references: [id])
 }
 
-model PaypalAccount {
-  id         String   @id @default(uuid())
-  marchentId String   @unique
-  email      String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  isDeleted  Boolean  @default(false)
-
-  user User @relation(fields: [marchentId], references: [id])
-}
-
-model CardPayment {
-  id         String   @id @default(uuid())
-  marchentId String   @unique
-  cardNumber String
-  expiryDate String
-  cvc        String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  isDeleted  Boolean  @default(false)
-
-  user User @relation(fields: [marchentId], references: [id])
+enum PaymentType {
+  BANK
+  PAYPAL
+  CARD
 }
 
 model Address {
@@ -168,16 +161,16 @@ model AddParcel {
 }
 
 model RestrictedUser {
-  id                 String    @id @default(uuid())
+  id                 String               @id @default(uuid())
   marchentId         String
   email              String
   role               RESTRICTED_USER_ROLE
   placeOrders        Boolean
   accessSavedAddress Boolean
   useDefaultAddress  Boolean
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
-  isDeleted          Boolean   @default(false)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  isDeleted          Boolean              @default(false)
 
   user User @relation(fields: [marchentId], references: [id])
 }
