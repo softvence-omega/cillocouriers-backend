@@ -13,4 +13,11 @@ router.post(
   paymentMethodController.addPaymentMethod
 );
 
+
+router.delete(
+  "/delete-payment-method/:id",
+  RoleValidation(USER_ROLE.marchant),
+  paymentMethodController.deletePaymentMethod
+)
+
 export const PaymentMethodRoute = router;

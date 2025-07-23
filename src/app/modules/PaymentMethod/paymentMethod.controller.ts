@@ -34,10 +34,24 @@ const getMyPaymentMethods = catchAsync(
     });
   }
 );
+const deletePaymentMethod = catchAsync(
+  async (req: Request & { user?: any }, res) => {
+    
+    const result = await paymentMethodService.deletePaymentMethod(req.params.id, req.user.id);
+
+    sendResponse(res, {
+      statusCode: status.OK,
+      success: true,
+      message: "Payment Method Deleted successfully.",
+      data: result,
+    });
+  }
+);
 
 
 
 export const paymentMethodController = {
   addPaymentMethod,
-  getMyPaymentMethods
+  getMyPaymentMethods,
+  deletePaymentMethod
 };
