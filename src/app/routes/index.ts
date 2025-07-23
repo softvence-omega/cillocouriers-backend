@@ -5,6 +5,8 @@ import { AddressRoutes } from "../modules/Address/address.route";
 import { CustomerRoutes } from "../modules/Customar/customar.route";
 import { ParcelRoutes } from "../modules/Parcel/parcel.route";
 import { PaymentMethodRoute } from "../modules/PaymentMethod/paymentMethod.route";
+import path from "path";
+import { NotificationRoutes } from "../modules/Notification/notification.route";
 
 const router = express.Router();
 
@@ -15,26 +17,28 @@ const moduleRoutes = [
   },
   {
     path: "/user",
-    route: UserDataRoutes
+    route: UserDataRoutes,
   },
   {
     path: "/address",
-    route: AddressRoutes
+    route: AddressRoutes,
   },
   {
     path: "/customer",
-    route: CustomerRoutes
-  }
-  ,
+    route: CustomerRoutes,
+  },
   {
     path: "/parcel",
-    route: ParcelRoutes
+    route: ParcelRoutes,
   },
   {
     path: "/payment-method",
-    route: PaymentMethodRoute
-  }
-
+    route: PaymentMethodRoute,
+  },
+  {
+    path: "/notifications",
+    route: NotificationRoutes,
+  },
 ];
 
 moduleRoutes.forEach((route) => router.use(route.path, route.route));
