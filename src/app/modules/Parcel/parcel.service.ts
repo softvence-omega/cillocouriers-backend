@@ -6,6 +6,13 @@ import { generateUniqueTrackingId } from "../../../helpers/generateUniqueTrackin
 import { paginationHelper } from "../../../helpers/paginationHelper";
 import { buildDynamicFilters } from "../../../helpers/buildDynamicFilters";
 import { ParcelSearchableFields } from "../../constants/searchableFieldConstant";
+import { Server as SocketIOServer } from "socket.io";
+
+let io: SocketIOServer; // এটা global scope এ রাখো
+
+export const initParcelService = (socket: SocketIOServer) => {
+  io = socket; // io কে ধরে রাখলাম emit করার জন্য
+};
 
 const addParcel = async (data: AddParcel & { addressId: string }) => {
   // 1. কাস্টমার আছে কিনা চেক
@@ -74,6 +81,19 @@ const addParcel = async (data: AddParcel & { addressId: string }) => {
       amount: totalPrice,
     },
   });
+
+    // 🔔 Create Notification
+    const notification = await prisma.notification.create({
+      data: {
+        title: `New parcel from ${data.marchentId}`,
+        parcelId: result.id,
+      },
+    });
+
+    // 🔥 Emit real-time
+    io.emit("new-notification", notification);
+    console.log("📢 Notification emitted:", notification);
+
 
   return result;
 };
