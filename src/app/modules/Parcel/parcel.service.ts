@@ -8,14 +8,13 @@ import { buildDynamicFilters } from "../../../helpers/buildDynamicFilters";
 import { ParcelSearchableFields } from "../../constants/searchableFieldConstant";
 import { Server as SocketIOServer } from "socket.io";
 
-let io: SocketIOServer; // এটা global scope এ রাখো
+let io: SocketIOServer; 
 
 export const initParcelService = (socket: SocketIOServer) => {
-  io = socket; // io কে ধরে রাখলাম emit করার জন্য
+  io = socket; 
 };
 
 const addParcel = async (data: AddParcel & { addressId: string }) => {
-  // 1. কাস্টমার আছে কিনা চেক
   const customer = await prisma.customer.findFirst({
     where: {
       id: data.customerId,
@@ -27,7 +26,6 @@ const addParcel = async (data: AddParcel & { addressId: string }) => {
     throw new AppError(status.NOT_FOUND, "Customer not found!");
   }
 
-  // 2. অ্যাড্রেস আছে কিনা চেক
   const address = await prisma.address.findFirst({
     where: {
       id: data.addressId,
@@ -39,13 +37,11 @@ const addParcel = async (data: AddParcel & { addressId: string }) => {
     throw new AppError(status.NOT_FOUND, "Address not found!");
   }
 
-  // 3. zone বের করা (local or intercity)
   const pickupCity = address.cityOrSuburb.toLowerCase();
   const destination = customer.ShippingAddress.toLowerCase();
   const isLocal = destination.includes(pickupCity);
   const zone = isLocal ? "local" : "intercity";
 
-  // 4. ওজন extract করা (e.g., "2kg" → 2)
   const extractWeight = (weightStr: string): number => {
     const match = weightStr.match(/[\d.]+/);
     return match ? parseFloat(match[0]) : 1;
@@ -64,10 +60,9 @@ const addParcel = async (data: AddParcel & { addressId: string }) => {
     basePrice * zoneMultiplier * typeMultiplier + codCharge
   );
 
-  // 6. Tracking ID generate করা
+  // 6. Tracking ID generate 
   const trackingId = await generateUniqueTrackingId(7); // final: TRK-XXXXXXX
 
-  // 7. Parcel তৈরি করা
   const result = await prisma.addParcel.create({
     data: {
       marchentId: data.marchentId,
