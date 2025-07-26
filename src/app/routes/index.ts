@@ -7,6 +7,7 @@ import { ParcelRoutes } from "../modules/Parcel/parcel.route";
 import { PaymentMethodRoute } from "../modules/PaymentMethod/paymentMethod.route";
 import path from "path";
 import { NotificationRoutes } from "../modules/Notification/notification.route";
+import { RestrictedUserRoutes } from "../modules/RestrictedUser/restrictedUser.route";
 
 const router = express.Router();
 
@@ -38,6 +39,10 @@ const moduleRoutes = [
   {
     path: "/notifications",
     route: NotificationRoutes,
+  },
+  {
+    path: "/restricted-user",
+    route: RestrictedUserRoutes,
   },
 ];
 
