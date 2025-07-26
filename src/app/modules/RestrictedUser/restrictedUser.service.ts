@@ -89,8 +89,31 @@ const getSingleRestrictedUser = async (id: string, marchentId: string) => {
   return result;
 };
 
+const deleteRestrictedUser = async (id: string, marchentId: string) => {
+  const isRestrictedUserExists = await prisma.restrictedUser.findFirst({
+    where: {
+      id,
+      marchentId,
+      isDeleted: false,
+    },
+  });
+
+  if (!isRestrictedUserExists) {
+    throw new AppError(status.NOT_FOUND, "Restricted user not found!");
+  }
+  await prisma.restrictedUser.update({
+    where: {
+      id,
+    },
+    data: {
+      isDeleted: true,
+    },
+  });
+};
+
 export const RestrictedUserService = {
   addRestrictedUser,
   getAllRestrictedUser,
-  getSingleRestrictedUser
+  getSingleRestrictedUser,
+  deleteRestrictedUser
 };

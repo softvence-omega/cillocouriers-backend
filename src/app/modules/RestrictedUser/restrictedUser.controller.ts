@@ -53,9 +53,27 @@ const getSingleRestrictedUser = catchAsync(
     });
   }
 );
+const deleteRestrictedUser = catchAsync(
+  async (req: Request & { user?: any }, res) => {
+    const result = await RestrictedUserService.deleteRestrictedUser(
+      req.params.id,
+      req.user.id
+    );
+
+    sendResponse(res, {
+      statusCode: status.OK,
+      success: true,
+      message: "Restricted User deleted successfully.",
+      data: result,
+    });
+  }
+);
+
+
 
 export const restrictedUserController = {
   addRestrictedUser,
   getAllRestrictedUser,
-  getSingleRestrictedUser
+  getSingleRestrictedUser,
+  deleteRestrictedUser
 };

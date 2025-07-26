@@ -22,4 +22,10 @@ router.post(
   restrictedUserController.addRestrictedUser
 );
 
+router.delete(
+  "/:id",
+  RoleValidation(USER_ROLE.marchant),
+  restrictedUserController.deleteRestrictedUser
+);
+
 export const RestrictedUserRoutes = router;
