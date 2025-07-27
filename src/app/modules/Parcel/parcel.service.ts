@@ -2,11 +2,11 @@ import { AddParcel, DeliveryStatus, ParcelStatus } from "@prisma/client";
 import prisma from "../../../shared/prisma";
 import AppError from "../../Errors/AppError";
 import status from "http-status";
-import { generateUniqueTrackingId } from "../../../helpers/generateUniqueTrackingId";
 import { paginationHelper } from "../../../helpers/paginationHelper";
 import { buildDynamicFilters } from "../../../helpers/buildDynamicFilters";
 import { ParcelSearchableFields } from "../../constants/searchableFieldConstant";
 import { Server as SocketIOServer } from "socket.io";
+import { generateUniqueTrackingId } from "../../../helpers/generateUniqueTicketId";
 
 let io: SocketIOServer; 
 

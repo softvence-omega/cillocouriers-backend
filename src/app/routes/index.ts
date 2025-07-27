@@ -8,6 +8,7 @@ import { PaymentMethodRoute } from "../modules/PaymentMethod/paymentMethod.route
 import path from "path";
 import { NotificationRoutes } from "../modules/Notification/notification.route";
 import { RestrictedUserRoutes } from "../modules/RestrictedUser/restrictedUser.route";
+import { SupportRoutes } from "../modules/Support/support.route";
 
 const router = express.Router();
 
@@ -43,6 +44,10 @@ const moduleRoutes = [
   {
     path: "/restricted-user",
     route: RestrictedUserRoutes,
+  },
+  {
+    path: "/support",
+    route: SupportRoutes,
   },
 ];
 

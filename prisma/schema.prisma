@@ -68,6 +68,8 @@ model User {
   createdAt               DateTime         @default(now())
   updatedAt               DateTime         @updatedAt
   PaymentMethod           PaymentMethod[]
+  Ticket                  Ticket[]
+  Comment                 Comment[]
 }
 
 model PaymentMethod {
@@ -183,4 +185,69 @@ model RestrictedUser {
   isDeleted          Boolean              @default(false)
 
   user User @relation(fields: [marchentId], references: [id])
+}
+
+enum SupportStatus {
+  OPEN
+  PENDING
+  RESOLVED
+  CLOSED
+  REOPENED
+}
+
+enum SupportPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum SupportCategory {
+  DELIVERY_ISSUES
+  PAYMENT_ISSUES
+  GENERAL_INQUIRY
+  TECHNICAL_SUPPORT
+  BILLING_CHARGES
+  REFUND_REQUEST
+  PRODUCT_INQUIRY
+  ACCOUNT_ISSUES
+  OTHER
+}
+
+model Ticket {
+  id                  String          @id @default(cuid())
+  ticketId            String          @unique // Display ID like TKT001
+  title               String
+  description         String
+  category            SupportCategory
+  status              SupportStatus   @default(OPEN)
+  priority            SupportPriority @default(MEDIUM)
+  attachementliveLink String?
+  marchentId          String
+  user                User            @relation(fields: [marchentId], references: [id])
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  resolvedAt DateTime?
+  closedAt   DateTime?
+
+  // Related records
+  comments Comment[]
+
+  @@map("tickets")
+}
+
+model Comment {
+  id         String  @id @default(cuid())
+  content    String
+  // Relations
+  ticketId String
+  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("comments")
 }
