@@ -12,7 +12,7 @@ router.get(
 );
 router.get(
   "/my-profile-info",
-  RoleValidation(USER_ROLE.admin, USER_ROLE.account, USER_ROLE.dispatch, USER_ROLE.marchant, USER_ROLE.warehouse),
+  RoleValidation(USER_ROLE.admin,  USER_ROLE.marchant),
   UserDataController.myProfileInfo
 );
 router.patch(
