@@ -4,39 +4,45 @@ import { SupportService } from "./support.service";
 import sendResponse from "../../../shared/sendResponse";
 import status from "http-status";
 import { uploadImageToSupabase } from "../../middlewares/uploadImageToSupabase";
-
+import fs from "fs";
 const addSupport = catchAsync(async (req: Request & { user?: any }, res) => {
-  // console.log(req.file, "File");
-  
+  // Check if file is present in the request
+  let attachementliveLink = null;
+  if (req?.file) {
+    const ImageName = `Image-${Date.now()}`;
+    try {
+      // Call the uploadImageToSupabase only if the file exists
+      attachementliveLink = await uploadImageToSupabase(
+        req?.file?.path as any,
+        ImageName
+      );
 
-  const ImageName =`Image-${Date.now()}`
-try {
-  const publicUrl = await uploadImageToSupabase(req?.file?.path as any, ImageName);
-  res.json({ success: true, imageUrl: publicUrl });
-} catch (err) {
-  console.error("❌ Upload error:", err);
-  res.status(500).json({ success: false, message: "fetch failed" });
-}
-  // const publicUrl = await uploadImageToSupabase(req?.file?.path as any, ImageName);
-  // console.log(publicUrl,'Public URL');
+      // Send the response with the uploaded image URL
 
-  // const imageUrl = await uploadImageToSupabase(req.file as any);
-  // console.log(imageUrl,'Image Url');
+      // Delete the local file after upload
+      fs.unlinkSync(req?.file?.path as any);
+    } catch (err) {
+      console.error("❌ Upload error:", err);
+      res.status(500).json({ success: false, message: "fetch failed" });
+    }
+  }
 
-  // Form-data te data field a stringified JSON ashe
+  // Parse JSON from form-data
   const parsedData = JSON.parse(req.body.data); // parse JSON string
   const supportData = {
     ...parsedData, // title, description, category
     marchentId: req.user?.id,
+    attachementliveLink: attachementliveLink,
   };
 
-  // const result = await SupportService.addSupport(supportData);
+  const result = await SupportService.addSupport(supportData);
 
+  // Send the success response for the support data
   sendResponse(res, {
     statusCode: status.OK,
     success: true,
     message: "Support Added successfully.",
-    data: "result",
+    data: result, 
   });
 });
 

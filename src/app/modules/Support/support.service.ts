@@ -23,24 +23,23 @@ const categoryPriorityMap: Record<SupportCategory, SupportPriority> = {
 };
 const addSupport = async (data: Ticket) => {
 
-  console.log(data);
 
-  // const priority = categoryPriorityMap[data.category] || "MEDIUM";
+  const priority = categoryPriorityMap[data.category] || "MEDIUM";
 
-  // const ticketId = await generateUniqueTicketId(5);
+  const ticketId = await generateUniqueTicketId(5);
 
-  // const ticketData = {
-  //   ...data,
-  //   priority,
-  //   status: SupportStatus.OPEN,
-  //   ticketId,
-  // };
+  const ticketData = {
+    ...data,
+    priority,
+    status: SupportStatus.OPEN,
+    ticketId,
+  };
 
-  // const result = await prisma.ticket.create({
-  //   data: { ...ticketData },
-  // });
+  const result = await prisma.ticket.create({
+    data: { ...ticketData },
+  });
 
-  // return result; // ✅ এই লাইনটা যোগ করো
+  return result; // ✅ এই লাইনটা যোগ করো
 };
 
 const mySupportRequests = async (marchentId: string, options:any) => {

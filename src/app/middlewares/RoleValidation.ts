@@ -53,7 +53,6 @@ const RoleValidation = (...roles: string[]) => {
       res.status(401).json({
         success: false,
         message: "Unauthorized access!",
-        error: error?.message || "Something went wrong",
       });
     }
   };
