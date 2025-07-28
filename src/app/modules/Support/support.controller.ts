@@ -22,6 +22,22 @@ const addSupport = catchAsync(async (req: Request & { user?: any }, res) => {
   });
 });
 
+const mySupportRequests = catchAsync(
+  async (req: Request & { user?: any }, res) => {
+    const result = await SupportService.mySupportRequests(
+      req.user?.id,
+      req.query
+    );
+    sendResponse(res, {
+      statusCode: status.OK,
+      success: true,
+      message: "Support requests fetched successfully.",
+      data: result,
+    });
+  }
+);
+
 export const SupportController = {
   addSupport,
+  mySupportRequests,
 };

@@ -8,6 +8,12 @@ const router = express.Router();
 
 
 
+router.get(
+  "/my-support-requests",
+  RoleValidation(USER_ROLE.marchant),
+  SupportController.mySupportRequests
+);
+
 router.post(
   "/add-support",
   parseFormData,
