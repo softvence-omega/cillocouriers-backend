@@ -7,20 +7,20 @@ import { uploadImageToSupabase } from "../../middlewares/uploadImageToSupabase";
 import fs from "fs";
 const addSupport = catchAsync(async (req: Request & { user?: any }, res) => {
   // Check if file is present in the request
-  let attachementliveLink = null;
-  if (req?.file) {
-    const ImageName = `Image-${Date.now()}`;
+  let attachementLiveLinks = [];
+
+  if (req?.files && req.files.length as number > 0) {
     try {
       // Call the uploadImageToSupabase only if the file exists
-      attachementliveLink = await uploadImageToSupabase(
-        req?.file?.path as any,
-        ImageName
-      );
+     for (const file of req.files as Express.Multer.File[]) {
+        const ImageName = `Image-${Date.now()}`;
+        const imageLink = await uploadImageToSupabase(file.path as any, ImageName);
 
-      // Send the response with the uploaded image URL
+        attachementLiveLinks.push(imageLink);
 
-      // Delete the local file after upload
-      fs.unlinkSync(req?.file?.path as any);
+        // Delete the local file after upload
+        fs.unlinkSync(file.path as any);
+      }
     } catch (err) {
       console.error("❌ Upload error:", err);
       res.status(500).json({ success: false, message: "fetch failed" });
@@ -32,7 +32,7 @@ const addSupport = catchAsync(async (req: Request & { user?: any }, res) => {
   const supportData = {
     ...parsedData, // title, description, category
     marchentId: req.user?.id,
-    attachementliveLink: attachementliveLink,
+    attachementLiveLinks: attachementLiveLinks,
   };
 
   const result = await SupportService.addSupport(supportData);
@@ -60,8 +60,24 @@ const mySupportRequests = catchAsync(
     });
   }
 );
+const allSupportRequests = catchAsync(
+  async (req: Request & { user?: any }, res) => {
+    const result = await SupportService.allSupportRequests(
+      req.query
+    );
+    sendResponse(res, {
+      statusCode: status.OK,
+      success: true,
+      message: "All Support requests fetched successfully.",
+      data: result,
+    });
+  }
+);
 
 export const SupportController = {
   addSupport,
   mySupportRequests,
+  allSupportRequests,
 };
+
+

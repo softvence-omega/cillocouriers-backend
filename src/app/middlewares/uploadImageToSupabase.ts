@@ -2,9 +2,11 @@ import fs from "fs";
 import mime from "mime-types"; // ✅ auto detect content-type
 import { supabase } from "./supabaseClient";
 
-export const uploadImageToSupabase = async (localFilePath: string, fileName: string) => {
-
-    console.log({localFilePath, fileName});
+export const uploadImageToSupabase = async (
+  localFilePath: string,
+  fileName: string
+) => {
+  console.log({ localFilePath, fileName });
 
   const fileBuffer = fs.readFileSync(localFilePath);
 
@@ -19,6 +21,7 @@ export const uploadImageToSupabase = async (localFilePath: string, fileName: str
 
   const { data: uploadData, error: uploadError } = await supabase.storage
     .from("certificates")
+    // .from("certificates")
     .upload(filePath, fileBuffer, {
       contentType: contentType,
       upsert: true,

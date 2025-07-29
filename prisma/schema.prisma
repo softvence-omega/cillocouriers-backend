@@ -222,7 +222,7 @@ model Ticket {
   category            SupportCategory
   status              SupportStatus   @default(OPEN)
   priority            SupportPriority @default(MEDIUM)
-  attachementliveLink String?
+  attachementLiveLinks  String[] @default([]) // Default to an empty array if not provided
   marchentId          String
   user                User            @relation(fields: [marchentId], references: [id])
   createdAt  DateTime  @default(now())

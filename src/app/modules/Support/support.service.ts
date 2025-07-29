@@ -22,7 +22,7 @@ const categoryPriorityMap: Record<SupportCategory, SupportPriority> = {
   OTHER: "LOW",
 };
 const addSupport = async (data: Ticket) => {
-
+  console.log({ data });
 
   const priority = categoryPriorityMap[data.category] || "MEDIUM";
 
@@ -39,47 +39,90 @@ const addSupport = async (data: Ticket) => {
     data: { ...ticketData },
   });
 
-  return result; // ✅ এই লাইনটা যোগ করো
+  return result;
 };
 
-const mySupportRequests = async (marchentId: string, options:any) => {
- const { page, limit, skip, sortBy, sortOrder } = paginationHelper.calculatePagination(options);
+const mySupportRequests = async (marchentId: string, options: any) => {
+  const { page, limit, skip, sortBy, sortOrder } =
+    paginationHelper.calculatePagination(options);
 
-    const whereConditions = buildDynamicFilters(options, SupportRequestSearchableFields);
+  const whereConditions = buildDynamicFilters(
+    options,
+    SupportRequestSearchableFields
+  );
 
-    const total = await prisma.ticket.count({
-        where: {
-            marchentId,
-            ...whereConditions,
-        },
-    });
+  const total = await prisma.ticket.count({
+    where: {
+      marchentId,
+      ...whereConditions,
+    },
+  });
 
-    const result = await prisma.ticket.findMany({
-        where: {
-            marchentId,
-            ...whereConditions,
-        },
-        skip,
-        take: limit,
-        orderBy: {
-            [sortBy]: sortOrder,
-        },
-    });
+  const result = await prisma.ticket.findMany({
+    where: {
+      marchentId,
+      ...whereConditions,
+    },
+    skip,
+    take: limit,
+    orderBy: {
+      [sortBy]: sortOrder,
+    },
+  });
 
-    const meta = {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-    };
+  const meta = {
+    page,
+    limit,
+    total,
+    totalPages: Math.ceil(total / limit),
+  };
 
-    return {
-        data: result,
-        meta,
-    };
+  return {
+    data: result,
+    meta,
+  };
+};
+const allSupportRequests = async (options: any) => {
+  const { page, limit, skip, sortBy, sortOrder } =
+    paginationHelper.calculatePagination(options);
+
+  const whereConditions = buildDynamicFilters(
+    options,
+    SupportRequestSearchableFields
+  );
+
+  const total = await prisma.ticket.count({
+    where: {
+      ...whereConditions,
+    },
+  });
+
+  const result = await prisma.ticket.findMany({
+    where: {
+      ...whereConditions,
+    },
+    skip,
+    take: limit,
+    orderBy: {
+      [sortBy]: sortOrder,
+    },
+  });
+
+  const meta = {
+    page,
+    limit,
+    total,
+    totalPages: Math.ceil(total / limit),
+  };
+
+  return {
+    data: result,
+    meta,
+  };
 };
 
 export const SupportService = {
   addSupport,
   mySupportRequests,
+  allSupportRequests,
 };
