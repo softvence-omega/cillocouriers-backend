@@ -20,7 +20,7 @@ export const uploadImageToSupabase = async (
   const filePath = `images/${fileName}`;
 
   const { data: uploadData, error: uploadError } = await supabase.storage
-    .from("certificates")
+    .from("attachments")
     // .from("certificates")
     .upload(filePath, fileBuffer, {
       contentType: contentType,
