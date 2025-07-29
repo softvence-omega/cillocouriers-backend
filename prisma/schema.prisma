@@ -235,7 +235,7 @@ model Ticket {
 }
 
 model Comment {
-  id         String  @id @default(cuid())
+  id         String  @id @default(uuid())
   content    String
   // Relations
   ticketId String

@@ -7,7 +7,7 @@ const router = express.Router();
 
 router.post(
   "/add-comment",
-  RoleValidation(USER_ROLE.marchant),
+  RoleValidation(USER_ROLE.admin),
   commentController.addComment
 );
 

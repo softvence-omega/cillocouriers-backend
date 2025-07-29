@@ -68,6 +68,19 @@ const mySupportRequests = async (marchentId: string, options: any) => {
     orderBy: {
       [sortBy]: sortOrder,
     },
+     include: {
+      comments: {
+        include: {
+          author: {
+            select: {
+              name: true,
+              email: true,
+              role: true,
+            },
+          },
+        },
+      },
+    },
   });
 
   const meta = {
@@ -105,6 +118,19 @@ const allSupportRequests = async (options: any) => {
     take: limit,
     orderBy: {
       [sortBy]: sortOrder,
+    },
+    include: {
+      comments: {
+        include: {
+          author: {
+            select: {
+              name: true,
+              email: true,
+              role: true,
+            },
+          },
+        },
+      },
     },
   });
 
