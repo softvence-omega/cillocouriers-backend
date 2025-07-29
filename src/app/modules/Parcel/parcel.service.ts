@@ -6,7 +6,7 @@ import { paginationHelper } from "../../../helpers/paginationHelper";
 import { buildDynamicFilters } from "../../../helpers/buildDynamicFilters";
 import { ParcelSearchableFields } from "../../constants/searchableFieldConstant";
 import { Server as SocketIOServer } from "socket.io";
-import { generateUniqueTrackingId } from "../../../helpers/generateUniqueTicketId";
+import { generateUniqueTrackingId } from "../../../helpers/generateUniqueTrackingId";
 
 let io: SocketIOServer; 
 

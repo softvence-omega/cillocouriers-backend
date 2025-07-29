@@ -191,8 +191,6 @@ enum SupportStatus {
   OPEN
   PENDING
   RESOLVED
-  CLOSED
-  REOPENED
 }
 
 enum SupportPriority {

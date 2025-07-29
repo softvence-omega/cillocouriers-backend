@@ -9,6 +9,7 @@ import path from "path";
 import { NotificationRoutes } from "../modules/Notification/notification.route";
 import { RestrictedUserRoutes } from "../modules/RestrictedUser/restrictedUser.route";
 import { SupportRoutes } from "../modules/Support/support.route";
+import { CommentRoutes } from "../modules/Comments/comments.route";
 
 const router = express.Router();
 
@@ -48,6 +49,10 @@ const moduleRoutes = [
   {
     path: "/support",
     route: SupportRoutes,
+  },
+  {
+    path: "/comments",
+    route: CommentRoutes,
   },
 ];
 
