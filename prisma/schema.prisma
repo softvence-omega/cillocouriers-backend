@@ -129,6 +129,7 @@ model Customer {
   Phone           String
   ShippingAddress String
   BillingAddress  String
+  postalCode      String
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   isDeleted       Boolean  @default(false)
@@ -143,6 +144,9 @@ model AddParcel {
   type           ParcelType
   name           String
   weight         String
+  length         String
+  width          String
+  height         String
   description    String
   customerId     String
   addressId      String
@@ -213,20 +217,20 @@ enum SupportCategory {
 }
 
 model Ticket {
-  id                  String          @id @default(cuid())
-  ticketId            String          @unique // Display ID like TKT001
-  title               String
-  description         String
-  category            SupportCategory
-  status              SupportStatus   @default(OPEN)
-  priority            SupportPriority @default(MEDIUM)
-  attachementLiveLinks  String[] @default([]) // Default to an empty array if not provided
-  marchentId          String
-  user                User            @relation(fields: [marchentId], references: [id])
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  resolvedAt DateTime?
-  closedAt   DateTime?
+  id                   String          @id @default(cuid())
+  ticketId             String          @unique // Display ID like TKT001
+  title                String
+  description          String
+  category             SupportCategory
+  status               SupportStatus   @default(OPEN)
+  priority             SupportPriority @default(MEDIUM)
+  attachementLiveLinks String[]        @default([]) // Default to an empty array if not provided
+  marchentId           String
+  user                 User            @relation(fields: [marchentId], references: [id])
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  resolvedAt           DateTime?
+  closedAt             DateTime?
 
   // Related records
   comments Comment[]
@@ -235,8 +239,8 @@ model Ticket {
 }
 
 model Comment {
-  id         String  @id @default(uuid())
-  content    String
+  id       String @id @default(uuid())
+  content  String
   // Relations
   ticketId String
   ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)

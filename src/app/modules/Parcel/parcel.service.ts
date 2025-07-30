@@ -7,12 +7,81 @@ import { buildDynamicFilters } from "../../../helpers/buildDynamicFilters";
 import { ParcelSearchableFields } from "../../constants/searchableFieldConstant";
 import { Server as SocketIOServer } from "socket.io";
 import { generateUniqueTrackingId } from "../../../helpers/generateUniqueTrackingId";
+import { getLocationByPostalCode } from "../../../helpers/getLocationByPostalCode";
+import calculateParcelPrice from "../../../helpers/calculateParcelPrice";
 
-let io: SocketIOServer; 
+let io: SocketIOServer;
 
 export const initParcelService = (socket: SocketIOServer) => {
-  io = socket; 
+  io = socket;
 };
+
+// const addParcel = async (data: AddParcel & { addressId: string }) => {
+//   const customer = await prisma.customer.findFirst({
+//     where: {
+//       id: data.customerId,
+//       marchentId: data.marchentId,
+//     },
+//   });
+
+//   if (!customer) {
+//     throw new AppError(status.NOT_FOUND, "Customer not found!");
+//   }
+
+//   const address = await prisma.address.findFirst({
+//     where: {
+//       id: data.addressId,
+//       marchentId: data.marchentId,
+//     },
+//   });
+
+//   if (!address) {
+//     throw new AppError(status.NOT_FOUND, "Address not found!");
+//   }
+
+//   // 6. Tracking ID generate
+//   const trackingId = await generateUniqueTrackingId(7); // final: TRK-XXXXXXX
+
+//   const pickupLocation = await getLocationByPostalCode(address.postalCode);
+//   console.log({ pickupLocation });
+//   const formattedPickupLocation = `${pickupLocation?.postalCode} ${pickupLocation?.placeName}, ${pickupLocation?.state}, ${pickupLocation?.country}`;
+
+//   console.log(formattedPickupLocation);
+
+//   const deliverLocation = await getLocationByPostalCode(customer.postalCode);
+//   console.log(deliverLocation);
+//   const formattedDeliverLocation = `${deliverLocation?.postalCode} ${deliverLocation?.placeName},${deliverLocation?.state}, ${deliverLocation?.country}`;
+
+//   console.log(formattedDeliverLocation);
+
+//   // const result = await prisma.addParcel.create({
+//   //   data: {
+//   //     marchentId: data.marchentId,
+//   //     customerId: data.customerId,
+//   //     addressId: data.addressId,
+//   //     type: data.type,
+//   //     name: data.name,
+//   //     weight: data.weight,
+//   //     description: data.description,
+//   //     trackingId: trackingId,
+//   //     amount: totalPrice,
+//   //   },
+//   // });
+
+//   //   // 🔔 Create Notification
+//   //   const notification = await prisma.notification.create({
+//   //     data: {
+//   //       title: `New parcel from ${data.marchentId}`,
+//   //       parcelId: result.id,
+//   //     },
+//   //   });
+
+//   //   // 🔥 Emit real-time
+//   //   io.emit("new-notification", notification);
+//   //   console.log("📢 Notification emitted:", notification);
+
+//   // return result;
+// };
 
 const addParcel = async (data: AddParcel & { addressId: string }) => {
   const customer = await prisma.customer.findFirst({
@@ -37,60 +106,61 @@ const addParcel = async (data: AddParcel & { addressId: string }) => {
     throw new AppError(status.NOT_FOUND, "Address not found!");
   }
 
-  const pickupCity = address.cityOrSuburb.toLowerCase();
-  const destination = customer.ShippingAddress.toLowerCase();
-  const isLocal = destination.includes(pickupCity);
-  const zone = isLocal ? "local" : "intercity";
-
-  const extractWeight = (weightStr: string): number => {
-    const match = weightStr.match(/[\d.]+/);
-    return match ? parseFloat(match[0]) : 1;
-  };
-
-  const weight = extractWeight(data.weight);
-
-  // 5. Price calculation
-  const baseRate = 50;
-  const zoneMultiplier = zone === "local" ? 1 : 1.5;
-  const typeMultiplier = data.type === "EXPRESS" ? 1.5 : 1;
-  const codCharge = 20;
-
-  const basePrice = weight * baseRate;
-  const totalPrice = Math.ceil(
-    basePrice * zoneMultiplier * typeMultiplier + codCharge
+  // Calculate the total price for the parcel
+  const totalPrice = calculateParcelPrice(
+    data.weight,
+    data.length,
+    data.width,
+    data.height
   );
 
-  // 6. Tracking ID generate 
+  console.log({ totalPrice });
+
+  // 6. Tracking ID generate
   const trackingId = await generateUniqueTrackingId(7); // final: TRK-XXXXXXX
 
-  const result = await prisma.addParcel.create({
-    data: {
-      marchentId: data.marchentId,
-      customerId: data.customerId,
-      addressId: data.addressId,
-      type: data.type,
-      name: data.name,
-      weight: data.weight,
-      description: data.description,
-      trackingId: trackingId,
-      amount: totalPrice,
-    },
-  });
+  const pickupLocation = await getLocationByPostalCode(address.postalCode);
+  console.log({ pickupLocation });
+  const formattedPickupLocation = `${pickupLocation?.postalCode} ${pickupLocation?.placeName}, ${pickupLocation?.state}, ${pickupLocation?.country}`;
 
-    // 🔔 Create Notification
-    const notification = await prisma.notification.create({
-      data: {
-        title: `New parcel from ${data.marchentId}`,
-        parcelId: result.id,
-      },
-    });
+  console.log(formattedPickupLocation);
 
-    // 🔥 Emit real-time
-    io.emit("new-notification", notification);
-    console.log("📢 Notification emitted:", notification);
+  const deliverLocation = await getLocationByPostalCode(customer.postalCode);
+  console.log(deliverLocation);
+  const formattedDeliverLocation = `${deliverLocation?.postalCode} ${deliverLocation?.placeName}, ${deliverLocation?.state}, ${deliverLocation?.country}`;
 
+  console.log(formattedDeliverLocation);
 
-  return result;
+  // const result = await prisma.addParcel.create({
+  //   data: {
+  //     marchentId: data.marchentId,
+  //     customerId: data.customerId,
+  //     addressId: data.addressId,
+  //     type: data.type,
+  //     name: data.name,
+  //     weight: data.weight,
+  //     length: data.length,
+  //     width: data.width,
+  //     height: data.height,
+  //     description: data.description,
+  //     trackingId: trackingId,
+  //     amount: totalPrice,
+  //   },
+  // });
+
+  // // 🔔 Create Notification
+  // const notification = await prisma.notification.create({
+  //   data: {
+  //     title: `New parcel from ${data.marchentId}`,
+  //     parcelId: result.id,
+  //   },
+  // });
+
+  // // 🔥 Emit real-time
+  // io.emit("new-notification", notification);
+  // console.log("📢 Notification emitted:", notification);
+
+  // return result;
 };
 
 const getAllParcels = async (options: any) => {
@@ -271,14 +341,12 @@ const deleteParcel = async (id: string, marchentId: string) => {
 //     data: {
 //       deliveryStatus: data.deliveryStatus,
 //       status: updatedStatus,
-      
+
 //     },
 //   });
 
 //   return updatedParcel;
 // };
-
-
 
 const DeliveryStatusOrder: Record<DeliveryStatus, number> = {
   PENDING: 1,
@@ -293,11 +361,12 @@ const DeliveryStatusOrder: Record<DeliveryStatus, number> = {
 // কোন deliveryStatus দিলে parcel.status কী হবে
 // ----------------------------------
 
-const DeliveryToParcelStatusMap: Partial<Record<DeliveryStatus, ParcelStatus>> = {
-  AWAITING_PICKUP: ParcelStatus.PROCESSING,
-  DELIVERED: ParcelStatus.COMPLETED,
-  NOT_DELIVERED: ParcelStatus.CANCELLED,
-};
+const DeliveryToParcelStatusMap: Partial<Record<DeliveryStatus, ParcelStatus>> =
+  {
+    AWAITING_PICKUP: ParcelStatus.PROCESSING,
+    DELIVERED: ParcelStatus.COMPLETED,
+    NOT_DELIVERED: ParcelStatus.CANCELLED,
+  };
 
 // ----------------------------------
 // MAIN FUNCTION: Parcel Status চেঞ্জ করা
@@ -319,7 +388,10 @@ const changeParcelStatus = async (
 
   // Step 2: Prevent changes after DELIVERED
   if (currentDeliveryStatus === "DELIVERED") {
-    throw new AppError(400, "Parcel is already delivered. Cannot change status.");
+    throw new AppError(
+      400,
+      "Parcel is already delivered. Cannot change status."
+    );
   }
 
   // Step 3: Get & validate new status (sanitize)
@@ -362,12 +434,11 @@ const changeParcelStatus = async (
   return updatedParcel;
 };
 
-
 export const ParcelService = {
   addParcel,
   myParcels,
   getSingleParcel,
   deleteParcel,
   getAllParcels,
-  changeParcelStatus
+  changeParcelStatus,
 };
