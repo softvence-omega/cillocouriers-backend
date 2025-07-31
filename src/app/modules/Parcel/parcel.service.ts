@@ -351,12 +351,12 @@ const DeliveryStatusOrder: Record<DeliveryStatus, number> = {
 // কোন deliveryStatus দিলে parcel.status কী হবে
 // ----------------------------------
 
-const DeliveryToParcelStatusMap: Partial<Record<DeliveryStatus, ParcelStatus>> =
-  {
-    AWAITING_PICKUP: ParcelStatus.PROCESSING,
-    DELIVERED: ParcelStatus.COMPLETED,
-    NOT_DELIVERED: ParcelStatus.CANCELLED,
-  };
+// const DeliveryToParcelStatusMap: Partial<Record<DeliveryStatus, ParcelStatus>> =
+//   {
+//     AWAITING_PICKUP: ParcelStatus.PROCESSING,
+//     DELIVERED: ParcelStatus.COMPLETED,
+//     NOT_DELIVERED: ParcelStatus.CANCELLED,
+//   };
 
 // ----------------------------------
 // MAIN FUNCTION: Parcel Status চেঞ্জ করা
@@ -409,15 +409,15 @@ const changeParcelStatus = async (
   }
 
   // Step 7: Determine ParcelStatus
-  const updatedParcelStatus =
-    DeliveryToParcelStatusMap[newDeliveryStatus] ?? parcel.status;
+  // const updatedParcelStatus =
+  //   DeliveryToParcelStatusMap[newDeliveryStatus] ?? parcel.status;
 
   // Step 8: Update parcel
   const updatedParcel = await prisma.addParcel.update({
     where: { id },
     data: {
       deliveryStatus: newDeliveryStatus,
-      status: updatedParcelStatus,
+      // status: updatedParcelStatus,
     },
   });
 

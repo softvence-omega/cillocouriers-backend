@@ -31,9 +31,16 @@ enum ParcelType {
 
 enum ParcelStatus {
   PENDING
-  PROCESSING
-  COMPLETED
-  CANCELLED
+  ACTIVE
+  NOT_ASSIGNED
+  NOT_ACCEPTED
+  NOT_STARTED_YET
+  STARTED
+  PICKED_UP
+  READY_TO_DELIVER
+  ALREADY_DELIVERED
+  FAILED_DELIVERY
+  INCOMPLETE
 }
 
 enum DeliveryStatus {
@@ -194,9 +201,6 @@ model AddParcel {
   customar       Customer       @relation(fields: [customerId], references: [id])
   Notification   Notification[]
 }
-
-
-
 
 model Notification {
   id        String    @id @default(uuid())
