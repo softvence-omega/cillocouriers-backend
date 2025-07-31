@@ -9,79 +9,45 @@ import { Server as SocketIOServer } from "socket.io";
 import { generateUniqueTrackingId } from "../../../helpers/generateUniqueTrackingId";
 import { getLocationByPostalCode } from "../../../helpers/getLocationByPostalCode";
 import calculateParcelPrice from "../../../helpers/calculateParcelPrice";
-
+import axios from "axios";
 let io: SocketIOServer;
 
 export const initParcelService = (socket: SocketIOServer) => {
   io = socket;
 };
 
-// const addParcel = async (data: AddParcel & { addressId: string }) => {
-//   const customer = await prisma.customer.findFirst({
-//     where: {
-//       id: data.customerId,
-//       marchentId: data.marchentId,
-//     },
-//   });
+const sendParcelToShipday = async (parcelData: any) => {
+  console.log({ parcelData });
+  try {
 
-//   if (!customer) {
-//     throw new AppError(status.NOT_FOUND, "Customer not found!");
-//   }
+    // Send the data to Shipday API
+    const response = await axios.post(
+      "https://dispatch.shipday.com/orders", // Correct API endpoint
 
-//   const address = await prisma.address.findFirst({
-//     where: {
-//       id: data.addressId,
-//       marchentId: data.marchentId,
-//     },
-//   });
+      {
+        orderNumber: parcelData.orderNumber,
+        customerName: parcelData.customerName,
+        customerAddress: parcelData.customerAddress,
+        customerEmail: parcelData.customerEmail,
+        customerPhoneNumber: parcelData.customerPhoneNumber,
+        restaurantName: parcelData.restaurantName,
+        restaurantAddress: parcelData.restaurantAddress,
+        restaurantPhoneNumber: parcelData.restaurantPhoneNumber,
+        totalOrderCost: parcelData.totalOrderCost,
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Basic ${process.env.SHIPDAY_API_KEY}`, // Your API key
+        },
+      }
+    );
 
-//   if (!address) {
-//     throw new AppError(status.NOT_FOUND, "Address not found!");
-//   }
-
-//   // 6. Tracking ID generate
-//   const trackingId = await generateUniqueTrackingId(7); // final: TRK-XXXXXXX
-
-//   const pickupLocation = await getLocationByPostalCode(address.postalCode);
-//   console.log({ pickupLocation });
-//   const formattedPickupLocation = `${pickupLocation?.postalCode} ${pickupLocation?.placeName}, ${pickupLocation?.state}, ${pickupLocation?.country}`;
-
-//   console.log(formattedPickupLocation);
-
-//   const deliverLocation = await getLocationByPostalCode(customer.postalCode);
-//   console.log(deliverLocation);
-//   const formattedDeliverLocation = `${deliverLocation?.postalCode} ${deliverLocation?.placeName},${deliverLocation?.state}, ${deliverLocation?.country}`;
-
-//   console.log(formattedDeliverLocation);
-
-//   // const result = await prisma.addParcel.create({
-//   //   data: {
-//   //     marchentId: data.marchentId,
-//   //     customerId: data.customerId,
-//   //     addressId: data.addressId,
-//   //     type: data.type,
-//   //     name: data.name,
-//   //     weight: data.weight,
-//   //     description: data.description,
-//   //     trackingId: trackingId,
-//   //     amount: totalPrice,
-//   //   },
-//   // });
-
-//   //   // 🔔 Create Notification
-//   //   const notification = await prisma.notification.create({
-//   //     data: {
-//   //       title: `New parcel from ${data.marchentId}`,
-//   //       parcelId: result.id,
-//   //     },
-//   //   });
-
-//   //   // 🔥 Emit real-time
-//   //   io.emit("new-notification", notification);
-//   //   console.log("📢 Notification emitted:", notification);
-
-//   // return result;
-// };
+    return response.data; // Return the Shipday response
+  } catch (error) {
+    console.error("Error sending data to Shipday:", error);
+  }
+};
 
 const addParcel = async (data: AddParcel & { addressId: string }) => {
   const customer = await prisma.customer.findFirst({
@@ -106,6 +72,12 @@ const addParcel = async (data: AddParcel & { addressId: string }) => {
     throw new AppError(status.NOT_FOUND, "Address not found!");
   }
 
+  const user = await prisma.user.findFirst({
+    where: {
+      id: data.marchentId,
+    },
+  });
+
   // Calculate the total price for the parcel
   const totalPrice = calculateParcelPrice(
     data.weight,
@@ -114,53 +86,71 @@ const addParcel = async (data: AddParcel & { addressId: string }) => {
     data.height
   );
 
-  console.log({ totalPrice });
+  // console.log({ totalPrice });
 
   // 6. Tracking ID generate
   const trackingId = await generateUniqueTrackingId(7); // final: TRK-XXXXXXX
 
   const pickupLocation = await getLocationByPostalCode(address.postalCode);
-  console.log({ pickupLocation });
+  // console.log({ pickupLocation });
   const formattedPickupLocation = `${pickupLocation?.postalCode} ${pickupLocation?.placeName}, ${pickupLocation?.state}, ${pickupLocation?.country}`;
 
-  console.log(formattedPickupLocation);
+  // console.log(formattedPickupLocation);
 
   const deliverLocation = await getLocationByPostalCode(customer.postalCode);
-  console.log(deliverLocation);
+  // console.log(deliverLocation);
   const formattedDeliverLocation = `${deliverLocation?.postalCode} ${deliverLocation?.placeName}, ${deliverLocation?.state}, ${deliverLocation?.country}`;
 
-  console.log(formattedDeliverLocation);
+  // console.log(formattedDeliverLocation);
 
-  // const result = await prisma.addParcel.create({
-  //   data: {
-  //     marchentId: data.marchentId,
-  //     customerId: data.customerId,
-  //     addressId: data.addressId,
-  //     type: data.type,
-  //     name: data.name,
-  //     weight: data.weight,
-  //     length: data.length,
-  //     width: data.width,
-  //     height: data.height,
-  //     description: data.description,
-  //     trackingId: trackingId,
-  //     amount: totalPrice,
-  //   },
-  // });
+  const parcelData = {
+    orderNumber: trackingId,
+    customerName: customer.Name,
+    customerAddress: formattedPickupLocation,
+    customerEmail: customer.Email,
+    customerPhoneNumber: customer.Phone,
+    restaurantName: user?.businessName || "Default Restaurant Name",
+    restaurantAddress: formattedDeliverLocation,
+    restaurantPhoneNumber: user?.phone || "1234567890",
+    totalOrderCost: totalPrice,
+  };
 
-  // // 🔔 Create Notification
-  // const notification = await prisma.notification.create({
-  //   data: {
-  //     title: `New parcel from ${data.marchentId}`,
-  //     parcelId: result.id,
-  //   },
-  // });
+  // Shipday API এ পাঠানোর জন্য কল
+  const shipdayResponse = await sendParcelToShipday(parcelData);
 
-  // // 🔥 Emit real-time
-  // io.emit("new-notification", notification);
-  // console.log("📢 Notification emitted:", notification);
+  const result = await prisma.addParcel.create({
+    data: {
+      marchentId: data.marchentId,
+      customerId: data.customerId,
+      addressId: data.addressId,
+      type: data.type,
+      name: data.name,
+      weight: data.weight,
+      length: data.length,
+      width: data.width,
+      height: data.height,
+      description: data.description,
+      trackingId: trackingId,
+      amount: totalPrice,
+    },
+  });
 
-  // return result;
+  // 🔔 Create Notification
+  const notification = await prisma.notification.create({
+    data: {
+      title: `New parcel from ${data.marchentId}`,
+      parcelId: result.id,
+    },
+  });
+
+  // 🔥 Emit real-time
+  io.emit("new-notification", notification);
+  console.log("📢 Notification emitted:", notification);
+
+ return {
+    parcel: result,
+    shipdayResponse: shipdayResponse,
+  };
 };
 
 const getAllParcels = async (options: any) => {

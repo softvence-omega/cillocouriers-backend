@@ -138,6 +138,35 @@ model Customer {
   AddParcel AddParcel[]
 }
 
+// model AddParcel {
+//   id             String         @id @default(uuid())
+//   marchentId     String
+//   type           ParcelType
+//   name           String
+//   weight         String
+//   length         String
+//   width          String
+//   height         String
+//   description    String
+//   customerId     String
+//   addressId      String
+//   invoice        String?
+//   notes          String?
+//   pickupDate     DateTime?
+//   trackingId     String?        @unique
+//   status         ParcelStatus   @default(PENDING)
+//   deliveryStatus DeliveryStatus @default(PENDING)
+//   amount         Float?
+//   paymentStatus  PaymentStatus  @default(PENDING)
+//   createdAt      DateTime       @default(now())
+//   updatedAt      DateTime       @updatedAt
+//   isDeleted      Boolean        @default(false)
+//   address        Address        @relation(fields: [addressId], references: [id])
+//   user           User           @relation(fields: [marchentId], references: [id])
+//   customar       Customer       @relation(fields: [customerId], references: [id])
+//   Notification   Notification[]
+// }
+
 model AddParcel {
   id             String         @id @default(uuid())
   marchentId     String
@@ -152,7 +181,6 @@ model AddParcel {
   addressId      String
   invoice        String?
   notes          String?
-  pickupDate     DateTime?
   trackingId     String?        @unique
   status         ParcelStatus   @default(PENDING)
   deliveryStatus DeliveryStatus @default(PENDING)
@@ -166,6 +194,9 @@ model AddParcel {
   customar       Customer       @relation(fields: [customerId], references: [id])
   Notification   Notification[]
 }
+
+
+
 
 model Notification {
   id        String    @id @default(uuid())
