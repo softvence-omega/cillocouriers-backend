@@ -327,7 +327,6 @@ const deleteParcel = async (id: string, marchentId: string) => {
   return null;
 };
 
-
 const VALID_STATUSES = [
   "ACTIVE",
   "NOT_ASSIGNED",
@@ -374,6 +373,28 @@ const updateShipdayStatus = async (orderId: string, status: string) => {
   }
 };
 
+const getOrderId = async (id:string) => {
+  try {
+    const url = `https://api.shipday.com/orders/${id}`;
+    const options = {
+      method: "GET",
+      headers: {
+        accept: "application/json",
+        Authorization: `Basic ${process.env.SHIPDAY_API_KEY}`,
+      },
+    };
+
+    const res = await fetch(url, options);
+    const json = await res.json();
+    return json[0].orderId
+
+    // console.log(orderId); // এখন এখানে ঠিকঠাক orderId পাবা
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+
 const DeliveryStatusOrder: Record<DeliveryStatus, number> = {
   PENDING: 1, // Initial state, parcel has not been processed
   AWAITING_PICKUP: 2, // Parcel is waiting for pickup
@@ -397,9 +418,10 @@ const DeliveryToParcelStatusMap: Partial<Record<DeliveryStatus, ParcelStatus>> =
     INCOMPLETE: ParcelStatus.INCOMPLETE, // INCOMPLETE → INCOMPLETE (parcel delivery was not fully completed)
   };
 
-// ----------------------------------
-// MAIN FUNCTION: Parcel Status চেঞ্জ করা
-// ----------------------------------
+
+
+
+
 const changeParcelStatus = async (
   id: string,
   data: { deliveryStatus: DeliveryStatus }
@@ -454,25 +476,26 @@ const changeParcelStatus = async (
   const updatedParcelStatus =
     DeliveryToParcelStatusMap[newDeliveryStatus] ?? parcel.status;
 
-    console.log({updatedParcelStatus});
+  console.log({ updatedParcelStatus });
 
   // Step 8: Update the parcel with the new delivery status
-  // const updatedParcel = await prisma.addParcel.update({
-  //   where: { id },
-  //   data: {
-  //     deliveryStatus: newDeliveryStatus,
-  //     status: updatedParcelStatus, // Update Parcel Status based on DeliveryStatus
-  //   },
-  // });
+  const updatedParcel = await prisma.addParcel.update({
+    where: { id },
+    data: {
+      deliveryStatus: newDeliveryStatus,
+      status: updatedParcelStatus, // Update Parcel Status based on DeliveryStatus
+    },
+  });
 
   // Step 7: Sync with Shipday
 
+  const orderId = await getOrderId(id); // ফাংশন কল করে result পেতে হবে
+  console.log({orderId});
 
-await updateShipdayStatus("bb563c8b-f8ca-4ac8-9b3f-2a1c3d5ec792", "NOT_STARTED_YET");
 
+  await updateShipdayStatus(orderId, updatedParcelStatus);
 
-
-  // return updatedParcel;
+  return updatedParcel;
 };
 
 export const ParcelService = {
