@@ -388,7 +388,6 @@ const getOrderId = async (id:string) => {
     const json = await res.json();
     return json[0].orderId
 
-    // console.log(orderId); // এখন এখানে ঠিকঠাক orderId পাবা
   } catch (err) {
     console.error(err);
   }
