@@ -19,7 +19,6 @@ export const initParcelService = (socket: SocketIOServer) => {
 const sendParcelToShipday = async (parcelData: any) => {
   console.log({ parcelData });
   try {
-
     // Send the data to Shipday API
     const response = await axios.post(
       "https://dispatch.shipday.com/orders", // Correct API endpoint
@@ -150,15 +149,11 @@ const addParcel = async (data: AddParcel & { addressId: string }) => {
     // Step 12: Emit Notification
     io.emit("new-notification", notification);
 
-    return {
-      parcel: result,
-      shipdayResponse: shipdayResponse,
-    };
+    return result;
   });
 
   return prismaTransaction;
 };
-
 
 const getAllParcels = async (options: any) => {
   const { page, limit, skip, sortBy, sortOrder } =
@@ -261,18 +256,21 @@ const myParcels = async (marchentId: string, options: any) => {
 const getSingleParcel = async (id: string) => {
   try {
     // First, fetch the parcel details from Shipday API
-    const shipdayResponse = await axios.get(`https://api.shipday.com/orders/${id}`, {
-      headers: {
-        "Authorization": `Basic ${process.env.SHIPDAY_API_KEY}`,  // Use the correct authorization method
-        "Accept": "application/json",
-      },
-    });
+    const shipdayResponse = await axios.get(
+      `https://api.shipday.com/orders/${id}`,
+      {
+        headers: {
+          Authorization: `Basic ${process.env.SHIPDAY_API_KEY}`, // Use the correct authorization method
+          Accept: "application/json",
+        },
+      }
+    );
 
     // Now fetch the parcel data from the Prisma database
     const result = await prisma.addParcel.findFirst({
       where: {
         id,
-        isDeleted: false,  // Only get parcels that are not deleted
+        isDeleted: false, // Only get parcels that are not deleted
       },
       include: {
         customar: true,
@@ -286,14 +284,20 @@ const getSingleParcel = async (id: string) => {
     }
 
     // Return both the Shipday API response and the database parcel data
-    return [{
-      shipdayOrderResponse: shipdayResponse.data[0],  // Assuming the Shipday API returns an array, and we need the first element
-      databaseResponse: result,  // Parcel data from the Prisma database
-    }];
-
+    return [
+      {
+        shipdayOrderResponse: shipdayResponse.data[0], // Assuming the Shipday API returns an array, and we need the first element
+        databaseResponse: result, // Parcel data from the Prisma database
+      },
+    ];
   } catch (error: any) {
-    console.error("Error fetching Shipday orders:", error.response?.data || error.message);
-    throw new Error("Failed to fetch parcel data from Shipday and the database");
+    console.error(
+      "Error fetching Shipday orders:",
+      error.response?.data || error.message
+    );
+    throw new Error(
+      "Failed to fetch parcel data from Shipday and the database"
+    );
   }
 };
 
@@ -323,68 +327,28 @@ const deleteParcel = async (id: string, marchentId: string) => {
   return null;
 };
 
-// const changeParcelStatus = async (
-//   id: string,
-//   data: { deliveryStatus: ParcelDeliveryStatus } // তুমি enum ইউজ করছো ধরছি
-// ) => {
-//   // Step 1: Check if parcel exists
-//   const parcel = await prisma.addParcel.findUnique({
-//     where: { id, isDeleted: false },
-//   });
-
-//   if (!parcel) {
-//     throw new AppError(404, "Parcel not found!");
-//   }
-
-//   // Step 2: Map deliveryStatus to status
-//   let updatedStatus: ParcelStatus | undefined;
-
-//   switch (data.deliveryStatus) {
-//     case "AWAITING_PICKUP":
-//       updatedStatus = "PROCESSING";
-//       break;
-//     case "DELIVERED":
-//       updatedStatus = "COMPLETED";
-//       break;
-//     case "NOT_DELIVERED":
-//       updatedStatus = "CANCELLED";
-//       break;
-//     default:
-//       updatedStatus = parcel.status; // unchanged or optionally throw error
-//   }
-
-//   // Step 3: Update parcel
-//   const updatedParcel = await prisma.addParcel.update({
-//     where: { id },
-//     data: {
-//       deliveryStatus: data.deliveryStatus,
-//       status: updatedStatus,
-
-//     },
-//   });
-
-//   return updatedParcel;
-// };
-
 const DeliveryStatusOrder: Record<DeliveryStatus, number> = {
-  PENDING: 1,
-  AWAITING_PICKUP: 2,
-  IN_TRANSIT: 3,
-  DELIVERED: 4,
-  NOT_DELIVERED: 5, // Final status
+  PENDING: 1, // Initial state, parcel has not been processed
+  AWAITING_PICKUP: 2, // Parcel is waiting for pickup
+  IN_TRANSIT: 3, // Parcel is on the way
+  INCOMPLETE: 4, // Parcel delivery was not fully completed (e.g., partially delivered or delayed)
+  DELIVERED: 5, // Parcel has been successfully delivered
+  NOT_DELIVERED: 6, // Parcel could not be delivered (final status)
 };
 
 // ----------------------------------
 // STATUS MAPPING:
 // কোন deliveryStatus দিলে parcel.status কী হবে
 // ----------------------------------
-
-// const DeliveryToParcelStatusMap: Partial<Record<DeliveryStatus, ParcelStatus>> =
-//   {
-//     AWAITING_PICKUP: ParcelStatus.PROCESSING,
-//     DELIVERED: ParcelStatus.COMPLETED,
-//     NOT_DELIVERED: ParcelStatus.CANCELLED,
-//   };
+const DeliveryToParcelStatusMap: Partial<Record<DeliveryStatus, ParcelStatus>> =
+  {
+    PENDING: ParcelStatus.PENDING, // PENDING → PENDING (not yet processed)
+    AWAITING_PICKUP: ParcelStatus.ACTIVE, // AWAITING_PICKUP → ACTIVE (waiting to be picked up)
+    IN_TRANSIT: ParcelStatus.STARTED, // IN_TRANSIT → STARTED (on the way)
+    DELIVERED: ParcelStatus.ALREADY_DELIVERED, // DELIVERED → ALREADY_DELIVERED (successfully delivered)
+    NOT_DELIVERED: ParcelStatus.FAILED_DELIVERY, // NOT_DELIVERED → FAILED_DELIVERY (could not be delivered)
+    INCOMPLETE: ParcelStatus.INCOMPLETE, // INCOMPLETE → INCOMPLETE (parcel delivery was not fully completed)
+  };
 
 // ----------------------------------
 // MAIN FUNCTION: Parcel Status চেঞ্জ করা
@@ -405,49 +369,69 @@ const changeParcelStatus = async (
   const currentDeliveryStatus = parcel.deliveryStatus as DeliveryStatus;
 
   // Step 2: Prevent changes after DELIVERED
-  if (currentDeliveryStatus === "DELIVERED") {
+  if (currentDeliveryStatus === DeliveryStatus.DELIVERED) {
     throw new AppError(
       400,
       "Parcel is already delivered. Cannot change status."
     );
   }
 
-  // Step 3: Get & validate new status (sanitize)
+  // Step 3: Validate and sanitize the new status
   const newDeliveryStatus = data.deliveryStatus.trim() as DeliveryStatus;
 
-  // Step 4: Validate enum value
+  // Step 4: Validate if the new status is a valid enum value
   if (!Object.values(DeliveryStatus).includes(newDeliveryStatus)) {
     throw new AppError(400, "Invalid delivery status!");
   }
 
+  // Step 5: Prevent backward status change
   const currentOrder = DeliveryStatusOrder[currentDeliveryStatus];
   const nextOrder = DeliveryStatusOrder[newDeliveryStatus];
 
-  // Step 5: Prevent backward status change
   if (nextOrder < currentOrder) {
     throw new AppError(
       400,
-      `Cannot move from ${currentDeliveryStatus} to ${newDeliveryStatus}`
+      `Cannot move from ${currentDeliveryStatus} to ${newDeliveryStatus}.`
     );
   }
 
-  // Step 6: Prevent same status
+  // Step 6: Prevent same status change
   if (nextOrder === currentOrder) {
-    throw new AppError(400, `Parcel is already in ${newDeliveryStatus} status`);
+    throw new AppError(
+      400,
+      `Parcel is already in ${newDeliveryStatus} status.`
+    );
   }
 
-  // Step 7: Determine ParcelStatus
-  // const updatedParcelStatus =
-  //   DeliveryToParcelStatusMap[newDeliveryStatus] ?? parcel.status;
+  // Step 7: Map DeliveryStatus to ParcelStatus
+  const updatedParcelStatus =
+    DeliveryToParcelStatusMap[newDeliveryStatus] ?? parcel.status;
 
-  // Step 8: Update parcel
+  // Step 8: Update the parcel with the new delivery status
   const updatedParcel = await prisma.addParcel.update({
     where: { id },
     data: {
       deliveryStatus: newDeliveryStatus,
-      // status: updatedParcelStatus,
+      status: updatedParcelStatus, // Update Parcel Status based on DeliveryStatus
     },
   });
+
+  const shipdayResponse = await axios.put(
+    `https://api.shipday.com/order/edit/${updatedParcel.id}`,
+    {
+      orderId: updatedParcel.id,
+      deliveryStatus: newDeliveryStatus,
+      orderState: updatedParcel.status,
+    },
+    {
+      headers: {
+        Authorization: `Basic ${process.env.SHIPDAY_API_KEY}`, // Use the correct authorization method
+        Accept: "application/json",
+      },
+    }
+  );
+
+  console.log(shipdayResponse);
 
   return updatedParcel;
 };
