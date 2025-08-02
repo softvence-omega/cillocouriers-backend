@@ -327,6 +327,53 @@ const deleteParcel = async (id: string, marchentId: string) => {
   return null;
 };
 
+
+const VALID_STATUSES = [
+  "ACTIVE",
+  "NOT_ASSIGNED",
+  "NOT_ACCEPTED",
+  "NOT_STARTED_YET",
+  "STARTED",
+  "PICKED_UP",
+  "READY_TO_DELIVER",
+  "ALREADY_DELIVERED",
+  "FAILED_DELIVERY",
+  "INCOMPLETE",
+];
+
+const updateShipdayStatus = async (orderId: string, status: string) => {
+  // Ensure status is valid
+  if (!VALID_STATUSES.includes(status)) {
+    throw new AppError(400, `Invalid Shipday status: ${status}`);
+  }
+
+  try {
+    const response = await axios.put(
+      `https://api.shipday.com/orders/${orderId}/status`,
+      { status }, // Only status is needed
+      {
+        headers: {
+          Authorization: `Basic ${process.env.SHIPDAY_API_KEY}`, // Must be valid
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    console.log("✅ Shipday Sync Success:", response.data);
+    return response.data;
+  } catch (error: any) {
+    if (error.response) {
+      console.error("❌ Shipday Sync Failed:", error.response.data);
+      console.error("Status Code:", error.response.status);
+    } else {
+      console.error("❌ Network or unknown error:", error.message);
+    }
+
+    throw new AppError(500, "Shipday sync failed.");
+  }
+};
+
 const DeliveryStatusOrder: Record<DeliveryStatus, number> = {
   PENDING: 1, // Initial state, parcel has not been processed
   AWAITING_PICKUP: 2, // Parcel is waiting for pickup
@@ -407,33 +454,25 @@ const changeParcelStatus = async (
   const updatedParcelStatus =
     DeliveryToParcelStatusMap[newDeliveryStatus] ?? parcel.status;
 
+    console.log({updatedParcelStatus});
+
   // Step 8: Update the parcel with the new delivery status
-  const updatedParcel = await prisma.addParcel.update({
-    where: { id },
-    data: {
-      deliveryStatus: newDeliveryStatus,
-      status: updatedParcelStatus, // Update Parcel Status based on DeliveryStatus
-    },
-  });
+  // const updatedParcel = await prisma.addParcel.update({
+  //   where: { id },
+  //   data: {
+  //     deliveryStatus: newDeliveryStatus,
+  //     status: updatedParcelStatus, // Update Parcel Status based on DeliveryStatus
+  //   },
+  // });
 
-  const shipdayResponse = await axios.put(
-    `https://api.shipday.com/order/edit/${updatedParcel.id}`,
-    {
-      orderId: updatedParcel.id,
-      deliveryStatus: newDeliveryStatus,
-      orderState: updatedParcel.status,
-    },
-    {
-      headers: {
-        Authorization: `Basic ${process.env.SHIPDAY_API_KEY}`, // Use the correct authorization method
-        Accept: "application/json",
-      },
-    }
-  );
+  // Step 7: Sync with Shipday
 
-  console.log(shipdayResponse);
 
-  return updatedParcel;
+await updateShipdayStatus("bb563c8b-f8ca-4ac8-9b3f-2a1c3d5ec792", "NOT_STARTED_YET");
+
+
+
+  // return updatedParcel;
 };
 
 export const ParcelService = {
