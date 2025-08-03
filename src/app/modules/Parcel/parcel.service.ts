@@ -49,9 +49,9 @@ const sendParcelToShipday = async (parcelData: any) => {
 };
 
 const addParcel = async (data: AddParcel & { addressId: string }) => {
-  const prismaTransaction = await prisma.$transaction(async (prisma) => {
+  const prismaTransaction = await prisma.$transaction(async (tx) => {
     // Step 1: Fetch Customer
-    const customer = await prisma.customer.findFirst({
+    const customer = await tx.customer.findFirst({
       where: {
         id: data.customerId,
         marchentId: data.marchentId,
@@ -63,7 +63,7 @@ const addParcel = async (data: AddParcel & { addressId: string }) => {
     }
 
     // Step 2: Fetch Address
-    const address = await prisma.address.findFirst({
+    const address = await tx.address.findFirst({
       where: {
         id: data.addressId,
         marchentId: data.marchentId,
@@ -96,16 +96,29 @@ const addParcel = async (data: AddParcel & { addressId: string }) => {
     // Step 5: Generate Tracking ID
     const trackingId = await generateUniqueTrackingId(7); // TRK-XXXXXXX
 
+    const apiKey = process.env.GEOCODING_API_KEY as string; // Replace with your geocoding API key
+    const countryCode = "au"; // Optional: Default is 'au'
+
+    // const pickupLocation = await getLocationByPostalCode(address.postalCode);
+
     // Step 6: Get Pickup Location
-    const pickupLocation = await getLocationByPostalCode(address.postalCode);
-    const formattedPickupLocation = `${pickupLocation?.postalCode} ${pickupLocation?.placeName}, ${pickupLocation?.state}, ${pickupLocation?.country}`;
+    const pickupLocation = await getLocationByPostalCode(
+      address.postalCode,
+      countryCode,
+      apiKey
+    );
+
+    // console.log({ pickupLocation });
+    const formattedPickupLocation = pickupLocation;
 
     // Step 7: Get Delivery Location
-    const deliverLocation = await getLocationByPostalCode(customer.postalCode);
-    const formattedDeliverLocation = `${deliverLocation?.postalCode} ${deliverLocation?.placeName}, ${deliverLocation?.state}, ${deliverLocation?.country}`;
+    const deliverLocation = await getLocationByPostalCode(customer.postalCode, countryCode,
+      apiKey);
 
+      // console.log({ deliverLocation });
+    const formattedDeliverLocation = deliverLocation
     // Step 8: Create Parcel Record
-    const result = await prisma.addParcel.create({
+    const result = await tx.addParcel.create({
       data: {
         marchentId: data.marchentId,
         customerId: data.customerId,
@@ -138,8 +151,15 @@ const addParcel = async (data: AddParcel & { addressId: string }) => {
     // Step 10: Call Shipday API
     const shipdayResponse = await sendParcelToShipday(parcelData);
 
+    await tx.addParcel.update({
+      where: { id: result.id },
+      data: {
+        shipdayOrderId: shipdayResponse?.orderId,
+      },
+    });
+
     // Step 11: Create Notification
-    const notification = await prisma.notification.create({
+    const notification = await tx.notification.create({
       data: {
         title: `New parcel from ${data.marchentId}`,
         parcelId: result.id,
@@ -149,7 +169,7 @@ const addParcel = async (data: AddParcel & { addressId: string }) => {
     // Step 12: Emit Notification
     io.emit("new-notification", notification);
 
-    return result;
+    return { ...result, shipdayOrderId: shipdayResponse?.orderId };
   });
 
   return prismaTransaction;
@@ -359,7 +379,7 @@ const updateShipdayStatus = async (orderId: string, status: string) => {
       }
     );
 
-    console.log("✅ Shipday Sync Success:", response.data);
+    // console.log("✅ Shipday Sync Success:", response.data);
     return response.data;
   } catch (error: any) {
     if (error.response) {
@@ -373,7 +393,7 @@ const updateShipdayStatus = async (orderId: string, status: string) => {
   }
 };
 
-const getOrderId = async (id:string) => {
+const getOrderId = async (id: string) => {
   try {
     const url = `https://api.shipday.com/orders/${id}`;
     const options = {
@@ -386,13 +406,11 @@ const getOrderId = async (id:string) => {
 
     const res = await fetch(url, options);
     const json = await res.json();
-    return json[0].orderId
-
+    return json[0].orderId;
   } catch (err) {
     console.error(err);
   }
 };
-
 
 const DeliveryStatusOrder: Record<DeliveryStatus, number> = {
   PENDING: 1, // Initial state, parcel has not been processed
@@ -416,10 +434,6 @@ const DeliveryToParcelStatusMap: Partial<Record<DeliveryStatus, ParcelStatus>> =
     NOT_DELIVERED: ParcelStatus.FAILED_DELIVERY, // NOT_DELIVERED → FAILED_DELIVERY (could not be delivered)
     INCOMPLETE: ParcelStatus.INCOMPLETE, // INCOMPLETE → INCOMPLETE (parcel delivery was not fully completed)
   };
-
-
-
-
 
 const changeParcelStatus = async (
   id: string,
@@ -489,8 +503,7 @@ const changeParcelStatus = async (
   // Step 7: Sync with Shipday
 
   const orderId = await getOrderId(id); // ফাংশন কল করে result পেতে হবে
-  console.log({orderId});
-
+  console.log({ orderId });
 
   await updateShipdayStatus(orderId, updatedParcelStatus);
 
