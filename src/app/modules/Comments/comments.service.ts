@@ -14,7 +14,6 @@ const addComment = async (data: Comment) => {
   if (!ticket) {
     throw new AppError(status.NOT_FOUND, "Ticket not found.");
   }
-
   // Create new comment
   const comment = await prisma.comment.create({
     data,
