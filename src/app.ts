@@ -4,6 +4,8 @@ import cors from "cors";
 import router from "./app/routes";
 import status from "http-status";
 import globalErrorHandler from "./app/middlewares/globalErrorHandler";
+import cookieParser from "cookie-parser";
+
 const app: Application = express();
 app.use(
   cors({
@@ -11,13 +13,13 @@ app.use(
     credentials: true,
   })
 );
+app.use(cookieParser());
 
 // parser
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
-
 app.use(globalErrorHandler);
 
 app.get("/", (req: Request, res: Response) => {
