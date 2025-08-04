@@ -22,7 +22,7 @@ const RoleValidation = (...roles: string[]) => {
 
       const verifiedUser = jwtHelpers.verifyToken(
         token,
-        config.jwt.jwt_secret as Secret
+        config.jwt.access_token_secret as Secret
       );
 
       if (roles.length && !roles.includes(verifiedUser.role)) {

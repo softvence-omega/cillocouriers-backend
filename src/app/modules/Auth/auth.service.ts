@@ -67,16 +67,27 @@ const loginUser = async (payload: { email: string; password: string }) => {
     throw new AppError(status.UNAUTHORIZED, "Your password is incorrect.");
   }
 
+  // const accessToken = jwtHelpers.generateToken(
+  //   {
+  //     id: userData.id,
+  //     name: userData.name,
+  //     email: userData.email,
+  //     role: userData.role,
+  //   },
+  //   config.jwt.access_token_secret as Secret,
+  //   config.jwt.access_token_expires_in as string
+  // );
+
   const accessToken = jwtHelpers.generateToken(
-    {
-      id: userData.id,
-      name: userData.name,
-      email: userData.email,
-      role: userData.role,
-    },
-    config.jwt.jwt_secret as Secret,
-    config.jwt.expires_in as string
-  );
+  {
+    id: userData.id,
+    name: userData.name,
+    email: userData.email,
+    role: userData.role,
+  },
+  config.jwt.access_token_secret as Secret,     // এটা ভুলে না যেও
+  config.jwt.access_token_expires_in as string // একদম loginUser এর মত
+);
 
   const refreshToken = jwtHelpers.generateToken(
     {
@@ -92,7 +103,46 @@ const loginUser = async (payload: { email: string; password: string }) => {
   };
 };
 
+const refreshAccessToken = async (token: string) => {
+  try {
+    // validate refresh token
+    const decoded = jwtHelpers.verifyToken(
+      token,
+      config.jwt.refresh_token_secret as Secret
+    );
+
+    const { email } = decoded;
+
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      throw new AppError(status.NOT_FOUND, "User not found");
+    }
+
+    const newAccessToken = jwtHelpers.generateToken(
+      {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+      config.jwt.access_token_secret as Secret,
+      config.jwt.access_token_expires_in as string
+    );
+
+    return {
+      accessToken: newAccessToken,
+    };
+  } catch (err) {
+    throw new AppError(status.UNAUTHORIZED, "Invalid refresh token");
+  }
+};
+
+
 export const UserService = {
   createUser,
   loginUser,
+  refreshAccessToken
 };
