@@ -49,6 +49,20 @@ const deleteCustomer = catchAsync(
     });
   }
 );
+const getAllCustomers = catchAsync(
+  async (req: Request & { user?: any }, res) => {
+    const result = await customarService.getAllCustomers(
+     req.query
+    );
+
+    sendResponse(res, {
+      statusCode: status.OK,
+      success: true,
+      message: "All Customers Fetched successfully.",
+      data: result,
+    });
+  }
+);
 const getMySelfCustomers = catchAsync(
   async (req: Request & { user?: any }, res) => {
     const result = await customarService.getMySelfCustomers(
@@ -86,4 +100,5 @@ export const customarController = {
   deleteCustomer,
   getMySelfCustomers,
   getSingleCustomer,
+  getAllCustomers
 };
