@@ -5,6 +5,9 @@ import RoleValidation from "../../middlewares/RoleValidation";
 import { customarController } from "./customar.controller";
 const router = express.Router();
 
+router.get('/', RoleValidation(USER_ROLE.admin),
+  customarController.getAllCustomers)
+
 router.get(
   "/myself-customers",
   RoleValidation(USER_ROLE.marchant),
