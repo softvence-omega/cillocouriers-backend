@@ -10,13 +10,22 @@ import { generateUniqueTrackingId } from "../../../helpers/generateUniqueTrackin
 import { getLocationByPostalCode } from "../../../helpers/getLocationByPostalCode";
 import calculateParcelPrice from "../../../helpers/calculateParcelPrice";
 import axios from "axios";
+import config from "../../../config";
+import Stripe from "stripe";
+import {
+  TParcelData,
+  TPaymentData,
+  TShipdayParcelData,
+} from "../../../types/parcel";
 let io: SocketIOServer;
+
+export const stripe = new Stripe(config.stripe_secret_key as string);
 
 export const initParcelService = (socket: SocketIOServer) => {
   io = socket;
 };
 
-const sendParcelToShipday = async (parcelData: any) => {
+export const sendParcelToShipday = async (parcelData: any) => {
   console.log({ parcelData });
   try {
     // Send the data to Shipday API
@@ -46,6 +55,44 @@ const sendParcelToShipday = async (parcelData: any) => {
   } catch (error) {
     console.error("Error sending data to Shipday:", error);
   }
+};
+
+const createStripeCheckoutSession = async (
+  paymentData: TPaymentData,
+  parcelData: TShipdayParcelData,
+  marchentId: string
+) => {
+  const { email, amount, parcelId } = paymentData;
+  const existingCustomer = await stripe.customers.list({ email, limit: 1 });
+  const customer =
+    existingCustomer.data[0] || (await stripe.customers.create({ email }));
+
+  const session = await stripe.checkout.sessions.create({
+    payment_method_types: ["card"],
+    mode: "payment",
+    customer: customer.id,
+    line_items: [
+      {
+        price_data: {
+          currency: "usd",
+          unit_amount: amount * 100,
+          product_data: { name: "Courier Service Payment" },
+        },
+        quantity: 1,
+      },
+    ],
+    metadata: {
+      parcelId: parcelId.toString(),
+      email,
+      amount: amount.toString(),
+      parcelData: JSON.stringify(parcelData),
+      marchentId,
+    },
+    success_url: `http://localhost:3000/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `http://localhost:3000/cancel`,
+  });
+
+  return session.url;
 };
 
 const addParcel = async (data: AddParcel & { addressId: string }) => {
@@ -112,11 +159,14 @@ const addParcel = async (data: AddParcel & { addressId: string }) => {
     const formattedPickupLocation = pickupLocation;
 
     // Step 7: Get Delivery Location
-    const deliverLocation = await getLocationByPostalCode(customer.postalCode, countryCode,
-      apiKey);
+    const deliverLocation = await getLocationByPostalCode(
+      customer.postalCode,
+      countryCode,
+      apiKey
+    );
 
-      // console.log({ deliverLocation });
-    const formattedDeliverLocation = deliverLocation
+    // console.log({ deliverLocation });
+    const formattedDeliverLocation = deliverLocation;
     // Step 8: Create Parcel Record
     const result = await tx.addParcel.create({
       data: {
@@ -135,8 +185,8 @@ const addParcel = async (data: AddParcel & { addressId: string }) => {
       },
     });
 
-    // Step 9: Prepare Data for Shipday
-    const parcelData = {
+    // Prepare Data for Shipday
+    const parcelData: TShipdayParcelData = {
       orderNumber: result.id,
       customerName: customer.Name,
       customerAddress: formattedPickupLocation,
@@ -148,28 +198,83 @@ const addParcel = async (data: AddParcel & { addressId: string }) => {
       totalOrderCost: totalPrice,
     };
 
-    // Step 10: Call Shipday API
-    const shipdayResponse = await sendParcelToShipday(parcelData);
+    console.log("ServiceparcelData:", parcelData);
 
-    await tx.addParcel.update({
-      where: { id: result.id },
-      data: {
-        shipdayOrderId: shipdayResponse?.orderId,
-      },
-    });
+    const paymentData = {
+      email: user?.email,
+      amount: totalPrice,
+      parcelId: result.id,
+    };
 
-    // Step 11: Create Notification
-    const notification = await tx.notification.create({
-      data: {
-        title: `New parcel from ${data.marchentId}`,
-        parcelId: result.id,
-      },
-    });
+    // console.log({paymentData})
 
-    // Step 12: Emit Notification
-    io.emit("new-notification", notification);
+    const response = await createStripeCheckoutSession(
+      paymentData,
+      parcelData,
+      user?.id
+    );
+    console.log({ response });
 
-    return { ...result, shipdayOrderId: shipdayResponse?.orderId };
+    // const findPaymentInfo = await prisma.payment.findFirst({
+    //   where: {
+    //     id: result.id,
+    //   },
+    // });
+
+    // if(findPaymentInfo){
+    //   await prisma.addParcel.update({
+    //     where:{
+    //       id:result.id
+    //     },
+    //     data:{
+    //       paymentStatus:"PAID"
+    //     }
+    //   })
+    //   // Step 9: Prepare Data for Shipday
+    // const parcelData = {
+    //   orderNumber: result.id,
+    //   customerName: customer.Name,
+    //   customerAddress: formattedPickupLocation,
+    //   customerEmail: customer.Email,
+    //   customerPhoneNumber: customer.Phone,
+    //   restaurantName: user?.businessName || "Default Restaurant Name",
+    //   restaurantAddress: formattedDeliverLocation,
+    //   restaurantPhoneNumber: user?.phone || "1234567890",
+    //   totalOrderCost: totalPrice,
+    // };
+
+    // // Step 10: Call Shipday API
+    // const shipdayResponse = await sendParcelToShipday(parcelData);
+    // console.log('shipdayResponseFromService:', shipdayResponse);
+
+    // await tx.addParcel.update({
+    //   where: { id: result.id },
+    //   data: {
+    //     shipdayOrderId: shipdayResponse?.orderId,
+    //   },
+    // });
+
+    // // Step 11: Create Notification
+    // const notification = await tx.notification.create({
+    //   data: {
+    //     title: `New parcel from ${data.marchentId}`,
+    //     parcelId: result.id,
+    //   },
+    // });
+
+    // // Step 12: Emit Notification
+    // io.emit("new-notification", notification);
+
+    // return { ...result, shipdayOrderId: shipdayResponse?.orderId };
+    // }else{
+    //   await prisma.addParcel.delete({
+    //     where:{
+    //       id:result.id
+    //     }
+    //   })
+    // }
+
+    return { ...result, paymentUrl: response };
   });
 
   return prismaTransaction;
