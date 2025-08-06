@@ -24,7 +24,7 @@ const categoryPriorityMap: Record<SupportCategory, SupportPriority> = {
   OTHER: "LOW",
 };
 const addSupport = async (data: Ticket) => {
-  console.log({ data });
+  // console.log({ data });
 
   const priority = categoryPriorityMap[data.category] || "MEDIUM";
 
