@@ -73,11 +73,27 @@ const allSupportRequests = catchAsync(
     });
   }
 );
+const changeSupportStatus = catchAsync(
+  async (req: Request & { user?: any }, res) => {
+   
+    const result = await SupportService.changeSupportStatus(
+      req.params.id,
+      req.body
+    );
+    sendResponse(res, {
+      statusCode: status.OK,
+      success: true,
+      message: "Support status changed successfully.",
+      data: result,
+    });
+  }
+);
 
 export const SupportController = {
   addSupport,
   mySupportRequests,
   allSupportRequests,
+  changeSupportStatus
 };
 
 

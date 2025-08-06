@@ -10,42 +10,13 @@ import { generateUniqueTrackingId } from "../../../helpers/generateUniqueTrackin
 import { getLocationByPostalCode } from "../../../helpers/getLocationByPostalCode";
 import calculateParcelPrice from "../../../helpers/calculateParcelPrice";
 import axios from "axios";
+import { getFormattedLocation } from "../../../helpers/getFormattedLocation";
+import { createShippoOrder } from "../../../utils/createShippoOrder";
+import { sendParcelToShipday } from "../../../utils/sendParcelToShipday";
 let io: SocketIOServer;
 
 export const initParcelService = (socket: SocketIOServer) => {
   io = socket;
-};
-
-const sendParcelToShipday = async (parcelData: any) => {
-  console.log({ parcelData });
-  try {
-    // Send the data to Shipday API
-    const response = await axios.post(
-      "https://dispatch.shipday.com/orders", // Correct API endpoint
-
-      {
-        orderNumber: parcelData.orderNumber,
-        customerName: parcelData.customerName,
-        customerAddress: parcelData.customerAddress,
-        customerEmail: parcelData.customerEmail,
-        customerPhoneNumber: parcelData.customerPhoneNumber,
-        restaurantName: parcelData.restaurantName,
-        restaurantAddress: parcelData.restaurantAddress,
-        restaurantPhoneNumber: parcelData.restaurantPhoneNumber,
-        totalOrderCost: parcelData.totalOrderCost,
-      },
-      {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Basic ${process.env.SHIPDAY_API_KEY}`, // Your API key
-        },
-      }
-    );
-
-    return response.data; // Return the Shipday response
-  } catch (error) {
-    console.error("Error sending data to Shipday:", error);
-  }
 };
 
 const addParcel = async (data: AddParcel & { addressId: string }) => {
@@ -151,71 +122,77 @@ const addParcel = async (data: AddParcel & { addressId: string }) => {
       totalOrderCost: totalPrice,
     };
 
-    // const weight = parseFloat(data.weight.toString()); // Ensure weight is a number
+    const location = await getFormattedLocation(
+      customer.postalCode,
+      "au",
+      process.env.GEOCODING_API_KEY as string
+    );
 
-    // // Return the final structured object
-    // const shippoData = {
-    //   to_address: {
-    //     city: formattedDeliverLocation.city || "",
-    //     company: user?.businessName || "Default Restaurant Name",
-    //     country: formattedDeliverLocation.country || "AU",
-    //     email: customer.Email || "",
-    //     name: customer.Name || "Customer Name",
-    //     phone: customer.Phone || "Unknown Phone",
-    //     state: formattedDeliverLocation.state || "",
-    //     street1: formattedDeliverLocation.street || "",
-    //     zip: formattedDeliverLocation.zip || "",
-    //   },
-    //   line_items: [
-    //     {
-    //       quantity: 1,
-    //       sku: result.trackingId || "N/A",
-    //       title: data.name || "Parcel",
-    //       total_price: totalPrice.toFixed(2),
-    //       currency: "AUD",
-    //       weight: weight.toFixed(2), // Ensure weight is a number
-    //       weight_unit: "kg",
-    //     },
-    //   ],
-    //   placed_at: new Date().toISOString(),
-    //   order_number: `#${result.id}`,
-    //   order_status: "PAID",
-    //   shipping_cost: totalPrice.toFixed(2),
-    //   shipping_cost_currency: "AUD",
-    //   shipping_method: "Standard Delivery",
-    //   subtotal_price: totalPrice.toFixed(2),
-    //   total_price: (totalPrice + parseFloat(totalPrice.toFixed(2))).toFixed(2),
-    //   total_tax: "0.00",
-    //   currency: "AUD",
-    //   weight: weight.toFixed(2), // Ensure weight is a number
-    //   weight_unit: "kg",
-    // };
+    console.log({ location });
 
+    const shippoData = {
+      to_address: {
+        city: location?.city, // City from the delivery address
+        company: user?.businessName || "Default Restaurant Name", // Default restaurant name
+        country: "AU", // Set country to Australia (AU)
+        email: customer.Email, // Customer email from the schema
+        name: customer.Name, // Customer name
+        phone: customer.Phone, // Customer phone number
+        state: location?.state, // Customer state (ensure it's available in your data)
+        // street1: formattedDeliverLocation.street || "", // Street address from the formatted delivery location
+        zip: location?.postalCode, // Postal code from the formatted delivery location
+      },
+      line_items: [
+        {
+          quantity: 1, // Assuming a single parcel
+          sku: result.trackingId || "N/A", // Tracking ID from the result or "N/A" if not available
+          title: data.name || "Parcel", // Parcel name from the data input
+          total_price: totalPrice.toFixed(2), // Total price of the parcel, rounded to two decimal places
+          currency: "AUD", // Currency set to AUD
+          weight: data?.weight, // Ensure weight is a number and formatted to two decimal places
+          weight_unit: "kg", // Weight unit is in kilograms (kg)
+        },
+      ],
+      placed_at: new Date().toISOString(), // Timestamp of when the parcel is placed
+      order_number: `#${result.id}`, // Order number is based on the parcel ID
+      order_status: "PAID", // Set the order status to "PAID"
+      shipping_cost: totalPrice.toFixed(2), // Shipping cost, based on the parcel's amount
+      shipping_cost_currency: "AUD", // Shipping cost in AUD
+      shipping_method: "Standard Delivery", // Assuming standard delivery, could be dynamic based on ParcelType
+      subtotal_price: totalPrice.toFixed(2), // Subtotal price based on the parcel's amount
+      total_price: (totalPrice + parseFloat(totalPrice.toFixed(2))).toFixed(2), // Total price including shipping cost
+      total_tax: "0.00", // Assuming no tax for now
+      currency: "AUD", // Currency used for the transaction
+      weight: data?.weight, // Total weight of the parcel
+      weight_unit: "kg", // Weight unit is in kilograms (kg)
+    };
 
-    // console.log({shippoData});
+    // console.log({ shippoData });
+
+    await createShippoOrder(shippoData);
 
     // Step 10: Call Shipday API
-    // const shipdayResponse = await sendParcelToShipday(parcelData);
+    const shipdayResponse = await sendParcelToShipday(parcelData);
 
-    // await tx.addParcel.update({
-    //   where: { id: result.id },
-    //   data: {
-    //     shipdayOrderId: shipdayResponse?.orderId,
-    //   },
-    // });
+    await tx.addParcel.update({
+      where: { id: result.id },
+      data: {
+        shipdayOrderId: shipdayResponse?.orderId,
+      },
+    });
 
-    // // Step 11: Create Notification
-    // const notification = await tx.notification.create({
-    //   data: {
-    //     title: `New parcel from ${data.marchentId}`,
-    //     parcelId: result.id,
-    //   },
-    // });
+    // Step 11: Create Notification
+    const notification = await tx.notification.create({
+      data: {
+        title: `New parcel from ${data.marchentId}`,
+        parcelId: result.id,
+      },
+    });
 
-    // // Step 12: Emit Notification
-    // io.emit("new-notification", notification);
+    // Step 12: Emit Notification
+    io.emit("new-notification", notification);
 
-    // return { ...result, shipdayOrderId: shipdayResponse?.orderId };
+    return { ...result, shipdayOrderId: shipdayResponse?.orderId };
   });
 
   return prismaTransaction;
