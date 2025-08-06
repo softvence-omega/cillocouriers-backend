@@ -254,7 +254,7 @@ const addParcel = async (data: AddParcel & { addressId: string }) => {
       // console.log({shipdayResponse});
 
       const shipdayOrderInfo = await getShipdayOrder(result.id);
-      console.log(shipdayOrderInfo?.[0].trackingLink);
+      // console.log(shipdayOrderInfo?.[0].trackingLink);
       // ডাটা আছে কিনা চেক করো
       if (!shipdayOrderInfo || shipdayOrderInfo.length === 0) {
         throw new Error("Shipday order info not found");
