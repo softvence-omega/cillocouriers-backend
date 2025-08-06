@@ -18,18 +18,17 @@ router.get(
   SupportController.mySupportRequests
 );
 
-// router.post(
-//   "/add-support",
-//   upload.single("image"),
-//   RoleValidation(USER_ROLE.marchant),
-//   SupportController.addSupport
-// );
 
 router.post(
   "/add-support",
-  upload.array("image"), // Allow multiple files (change from single to array)
+  upload.array("image"),
   RoleValidation(USER_ROLE.marchant),
   SupportController.addSupport
+);
+router.patch(
+  "/change-support-status/:id",
+  RoleValidation(USER_ROLE.admin),
+  SupportController.changeSupportStatus
 );
 
 

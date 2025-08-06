@@ -139,7 +139,6 @@ model Customer {
   user      User        @relation(fields: [marchentId], references: [id])
   AddParcel AddParcel[]
 }
- 
 
 model AddParcel {
   id             String         @id @default(uuid())
@@ -156,7 +155,8 @@ model AddParcel {
   invoice        String?
   notes          String?
   trackingId     String?        @unique
-  shipdayOrderId  Int?     // ✅ Nullable Number
+  shipdayOrderId Int? // ✅ Nullable Number
+  trackingLink String?
   status         ParcelStatus   @default(PENDING)
   deliveryStatus DeliveryStatus @default(PENDING)
   amount         Float?
