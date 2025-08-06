@@ -6,7 +6,7 @@ export const uploadImageToSupabase = async (
   localFilePath: string,
   fileName: string
 ) => {
-  console.log({ localFilePath, fileName });
+  // console.log({ localFilePath, fileName });
 
   const fileBuffer = fs.readFileSync(localFilePath);
 
@@ -33,7 +33,7 @@ export const uploadImageToSupabase = async (
   }
 
   const { data: urlData } = supabase.storage
-    .from("certificates")
+    .from("attachments")
     .getPublicUrl(filePath);
 
   if (!urlData?.publicUrl) {
