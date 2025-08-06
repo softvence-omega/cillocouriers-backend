@@ -60,6 +60,14 @@ const mySupportRequests = async (marchentId: string, options: any) => {
     },
   });
 
+  const [openCount, pendingCount, resolvedCount] = await Promise.all([
+    prisma.ticket.count({ where: { status: "OPEN", marchentId } }),
+    prisma.ticket.count({ where: { status: "PENDING", marchentId } }),
+    prisma.ticket.count({ where: { status: "RESOLVED", marchentId } }),
+  ]);
+
+  const totalData = await prisma.ticket.count({ where: { marchentId } });
+
   const result = await prisma.ticket.findMany({
     where: {
       marchentId,
@@ -92,9 +100,17 @@ const mySupportRequests = async (marchentId: string, options: any) => {
     totalPages: Math.ceil(total / limit),
   };
 
+  const cardData = {
+    totalData,
+    open: openCount,
+    pending: pendingCount,
+    resolved: resolvedCount,
+  };
+
   return {
     data: result,
     meta,
+    cardData,
   };
 };
 
@@ -174,7 +190,7 @@ const changeSupportStatus = async (
 
   // console.log(isTicketExist);
   if (!isTicketExist) {
-    throw new AppError(status.NOT_FOUND,"Ticket not found");
+    throw new AppError(status.NOT_FOUND, "Ticket not found");
   }
 
   const result = await prisma.ticket.update({
@@ -186,7 +202,7 @@ const changeSupportStatus = async (
     },
   });
 
-  return result
+  return result;
 };
 
 export const SupportService = {
