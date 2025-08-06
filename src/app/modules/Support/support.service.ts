@@ -9,6 +9,8 @@ import prisma from "../../../shared/prisma";
 import { buildDynamicFilters } from "../../../helpers/buildDynamicFilters";
 import { paginationHelper } from "../../../helpers/paginationHelper";
 import { SupportRequestSearchableFields } from "../../constants/searchableFieldConstant";
+import AppError from "../../Errors/AppError";
+import status from "http-status";
 // Mapping from category to priority
 const categoryPriorityMap: Record<SupportCategory, SupportPriority> = {
   DELIVERY_ISSUES: "HIGH",
@@ -68,7 +70,7 @@ const mySupportRequests = async (marchentId: string, options: any) => {
     orderBy: {
       [sortBy]: sortOrder,
     },
-     include: {
+    include: {
       comments: {
         include: {
           author: {
@@ -95,6 +97,7 @@ const mySupportRequests = async (marchentId: string, options: any) => {
     meta,
   };
 };
+
 const allSupportRequests = async (options: any) => {
   const { page, limit, skip, sortBy, sortOrder } =
     paginationHelper.calculatePagination(options);
@@ -104,12 +107,18 @@ const allSupportRequests = async (options: any) => {
     SupportRequestSearchableFields
   );
 
-  const total = await prisma.ticket.count({
-    where: {
-      ...whereConditions,
-    },
-  });
+  // ===== Status counts (pagination-এর বাইরে) =====
+  // যদি সিনট্যাক্স/স্ট্যাটাস ভিন্ন হয় তাহলে 'OPEN'|'PENDING'|'RESOLVED' বদলে দাও
+  const [total, openCount, pendingCount, resolvedCount] = await Promise.all([
+    prisma.ticket.count({ where: { ...whereConditions } }),
+    prisma.ticket.count({ where: { status: "OPEN" } }),
+    prisma.ticket.count({ where: { status: "PENDING" } }),
+    prisma.ticket.count({ where: { status: "RESOLVED" } }),
+  ]);
 
+  const totalData = await prisma.ticket.count();
+
+  // ===== Paginated query (যেমন আগেও ছিল) =====
   const result = await prisma.ticket.findMany({
     where: {
       ...whereConditions,
@@ -141,14 +150,48 @@ const allSupportRequests = async (options: any) => {
     totalPages: Math.ceil(total / limit),
   };
 
+  const cardData = {
+    totalData,
+    open: openCount,
+    pending: pendingCount,
+    resolved: resolvedCount,
+  };
+
   return {
     data: result,
     meta,
+    cardData,
   };
+};
+
+const changeSupportStatus = async (
+  ticketId: string,
+  data: { status: SupportStatus }
+) => {
+  const isTicketExist = await prisma.ticket.findUnique({
+    where: { id: ticketId },
+  });
+
+  // console.log(isTicketExist);
+  if (!isTicketExist) {
+    throw new AppError(status.NOT_FOUND,"Ticket not found");
+  }
+
+  const result = await prisma.ticket.update({
+    where: {
+      id: ticketId,
+    },
+    data: {
+      status: data.status,
+    },
+  });
+
+  return result
 };
 
 export const SupportService = {
   addSupport,
   mySupportRequests,
   allSupportRequests,
+  changeSupportStatus,
 };
