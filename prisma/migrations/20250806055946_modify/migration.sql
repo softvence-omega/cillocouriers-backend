@@ -11,13 +11,25 @@ CREATE TYPE "RESTRICTED_USER_ROLE" AS ENUM ('dispatch', 'account', 'warehouse');
 CREATE TYPE "ParcelType" AS ENUM ('REGULAR', 'EXPRESS');
 
 -- CreateEnum
-CREATE TYPE "ParcelStatus" AS ENUM ('PENDING', 'PROCESSING', 'COMPLETED', 'CANCELLED');
+CREATE TYPE "ParcelStatus" AS ENUM ('PENDING', 'ACTIVE', 'STARTED', 'ALREADY_DELIVERED', 'FAILED_DELIVERY', 'INCOMPLETE');
 
 -- CreateEnum
-CREATE TYPE "DeliveryStatus" AS ENUM ('PENDING', 'AWAITING_PICKUP', 'IN_TRANSIT', 'DELIVERED', 'NOT_DELIVERED');
+CREATE TYPE "DeliveryStatus" AS ENUM ('PENDING', 'AWAITING_PICKUP', 'IN_TRANSIT', 'DELIVERED', 'NOT_DELIVERED', 'INCOMPLETE');
 
 -- CreateEnum
-CREATE TYPE "PaymentStatus" AS ENUM ('PENDING', 'PAID', 'REFUNDED');
+CREATE TYPE "PaymentStatus" AS ENUM ('PENDING', 'PAID');
+
+-- CreateEnum
+CREATE TYPE "PaymentType" AS ENUM ('BANK', 'PAYPAL', 'CARD');
+
+-- CreateEnum
+CREATE TYPE "SupportStatus" AS ENUM ('OPEN', 'PENDING', 'RESOLVED');
+
+-- CreateEnum
+CREATE TYPE "SupportPriority" AS ENUM ('LOW', 'MEDIUM', 'HIGH', 'URGENT');
+
+-- CreateEnum
+CREATE TYPE "SupportCategory" AS ENUM ('DELIVERY_ISSUES', 'PAYMENT_ISSUES', 'GENERAL_INQUIRY', 'TECHNICAL_SUPPORT', 'BILLING_CHARGES', 'REFUND_REQUEST', 'PRODUCT_INQUIRY', 'ACCOUNT_ISSUES', 'OTHER');
 
 -- CreateTable
 CREATE TABLE "User" (
@@ -38,42 +50,22 @@ CREATE TABLE "User" (
 );
 
 -- CreateTable
-CREATE TABLE "BankAccount" (
+CREATE TABLE "PaymentMethod" (
     "id" TEXT NOT NULL,
     "marchentId" TEXT NOT NULL,
-    "accountHolderName" TEXT NOT NULL,
-    "accountNumber" TEXT NOT NULL,
+    "type" "PaymentType" NOT NULL,
+    "accountHolder" TEXT,
+    "accountNumber" TEXT,
+    "bsbNumber" TEXT,
+    "email" TEXT,
+    "cardNumber" TEXT,
+    "expiryDate" TEXT,
+    "cvc" TEXT,
+    "isDeleted" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    "isDeleted" BOOLEAN NOT NULL DEFAULT false,
 
-    CONSTRAINT "BankAccount_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "PaypalAccount" (
-    "id" TEXT NOT NULL,
-    "marchentId" TEXT NOT NULL,
-    "email" TEXT NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-    "isDeleted" BOOLEAN NOT NULL DEFAULT false,
-
-    CONSTRAINT "PaypalAccount_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "CardPayment" (
-    "id" TEXT NOT NULL,
-    "marchentId" TEXT NOT NULL,
-    "cardNumber" TEXT NOT NULL,
-    "expiryDate" TEXT NOT NULL,
-    "cvc" TEXT NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-    "isDeleted" BOOLEAN NOT NULL DEFAULT false,
-
-    CONSTRAINT "CardPayment_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "PaymentMethod_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -103,6 +95,7 @@ CREATE TABLE "Customer" (
     "Phone" TEXT NOT NULL,
     "ShippingAddress" TEXT NOT NULL,
     "BillingAddress" TEXT NOT NULL,
+    "postalCode" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "isDeleted" BOOLEAN NOT NULL DEFAULT false,
@@ -117,13 +110,17 @@ CREATE TABLE "AddParcel" (
     "type" "ParcelType" NOT NULL,
     "name" TEXT NOT NULL,
     "weight" TEXT NOT NULL,
+    "length" TEXT NOT NULL,
+    "width" TEXT NOT NULL,
+    "height" TEXT NOT NULL,
     "description" TEXT NOT NULL,
     "customerId" TEXT NOT NULL,
     "addressId" TEXT NOT NULL,
     "invoice" TEXT,
     "notes" TEXT,
-    "pickupDate" TIMESTAMP(3),
     "trackingId" TEXT,
+    "shipdayOrderId" INTEGER,
+    "trackingLink" TEXT,
     "status" "ParcelStatus" NOT NULL DEFAULT 'PENDING',
     "deliveryStatus" "DeliveryStatus" NOT NULL DEFAULT 'PENDING',
     "amount" DOUBLE PRECISION,
@@ -133,6 +130,17 @@ CREATE TABLE "AddParcel" (
     "isDeleted" BOOLEAN NOT NULL DEFAULT false,
 
     CONSTRAINT "AddParcel_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Notification" (
+    "id" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "isRead" BOOLEAN NOT NULL DEFAULT false,
+    "parcelId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Notification_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -151,29 +159,48 @@ CREATE TABLE "RestrictedUser" (
     CONSTRAINT "RestrictedUser_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "tickets" (
+    "id" TEXT NOT NULL,
+    "ticketId" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "description" TEXT NOT NULL,
+    "category" "SupportCategory" NOT NULL,
+    "status" "SupportStatus" NOT NULL DEFAULT 'OPEN',
+    "priority" "SupportPriority" NOT NULL DEFAULT 'MEDIUM',
+    "attachementLiveLinks" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "marchentId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "resolvedAt" TIMESTAMP(3),
+    "closedAt" TIMESTAMP(3),
+
+    CONSTRAINT "tickets_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "comments" (
+    "id" TEXT NOT NULL,
+    "content" TEXT NOT NULL,
+    "ticketId" TEXT NOT NULL,
+    "authorId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "comments_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "BankAccount_marchentId_key" ON "BankAccount"("marchentId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "PaypalAccount_marchentId_key" ON "PaypalAccount"("marchentId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "CardPayment_marchentId_key" ON "CardPayment"("marchentId");
-
--- CreateIndex
 CREATE UNIQUE INDEX "AddParcel_trackingId_key" ON "AddParcel"("trackingId");
 
--- AddForeignKey
-ALTER TABLE "BankAccount" ADD CONSTRAINT "BankAccount_marchentId_fkey" FOREIGN KEY ("marchentId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+-- CreateIndex
+CREATE UNIQUE INDEX "tickets_ticketId_key" ON "tickets"("ticketId");
 
 -- AddForeignKey
-ALTER TABLE "PaypalAccount" ADD CONSTRAINT "PaypalAccount_marchentId_fkey" FOREIGN KEY ("marchentId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "CardPayment" ADD CONSTRAINT "CardPayment_marchentId_fkey" FOREIGN KEY ("marchentId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "PaymentMethod" ADD CONSTRAINT "PaymentMethod_marchentId_fkey" FOREIGN KEY ("marchentId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Address" ADD CONSTRAINT "Address_marchentId_fkey" FOREIGN KEY ("marchentId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -191,4 +218,16 @@ ALTER TABLE "AddParcel" ADD CONSTRAINT "AddParcel_marchentId_fkey" FOREIGN KEY (
 ALTER TABLE "AddParcel" ADD CONSTRAINT "AddParcel_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "Customer"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "Notification" ADD CONSTRAINT "Notification_parcelId_fkey" FOREIGN KEY ("parcelId") REFERENCES "AddParcel"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "RestrictedUser" ADD CONSTRAINT "RestrictedUser_marchentId_fkey" FOREIGN KEY ("marchentId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "tickets" ADD CONSTRAINT "tickets_marchentId_fkey" FOREIGN KEY ("marchentId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "comments" ADD CONSTRAINT "comments_ticketId_fkey" FOREIGN KEY ("ticketId") REFERENCES "tickets"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "comments" ADD CONSTRAINT "comments_authorId_fkey" FOREIGN KEY ("authorId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

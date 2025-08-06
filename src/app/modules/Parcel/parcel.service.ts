@@ -11,189 +11,285 @@ import { getLocationByPostalCode } from "../../../helpers/getLocationByPostalCod
 import calculateParcelPrice from "../../../helpers/calculateParcelPrice";
 import axios from "axios";
 import { getFormattedLocation } from "../../../helpers/getFormattedLocation";
-import { createShippoOrder } from "../../../utils/createShippoOrder";
-import { sendParcelToShipday } from "../../../utils/sendParcelToShipday";
 let io: SocketIOServer;
 
 export const initParcelService = (socket: SocketIOServer) => {
   io = socket;
 };
 
-const addParcel = async (data: AddParcel & { addressId: string }) => {
-  const prismaTransaction = await prisma.$transaction(async (tx) => {
-    // Step 1: Fetch Customer
-    const customer = await tx.customer.findFirst({
-      where: {
-        id: data.customerId,
-        marchentId: data.marchentId,
+const sendParcelToShipday = async (parcelData: any) => {
+  // console.log({ parcelData });
+  try {
+    // Send the data to Shipday API
+    const response = await axios.post(
+      "https://dispatch.shipday.com/orders", // Correct API endpoint
+
+      {
+        orderNumber: parcelData.orderNumber,
+        customerName: parcelData.customerName,
+        customerAddress: parcelData.customerAddress,
+        customerEmail: parcelData.customerEmail,
+        customerPhoneNumber: parcelData.customerPhoneNumber,
+        restaurantName: parcelData.restaurantName,
+        restaurantAddress: parcelData.restaurantAddress,
+        restaurantPhoneNumber: parcelData.restaurantPhoneNumber,
+        totalOrderCost: parcelData.totalOrderCost,
       },
-    });
-
-    if (!customer) {
-      throw new AppError(status.NOT_FOUND, "Customer not found!");
-    }
-
-    // Step 2: Fetch Address
-    const address = await tx.address.findFirst({
-      where: {
-        id: data.addressId,
-        marchentId: data.marchentId,
-      },
-    });
-
-    if (!address) {
-      throw new AppError(status.NOT_FOUND, "Address not found!");
-    }
-
-    // Step 3: Fetch User (Restaurant)
-    const user = await prisma.user.findFirst({
-      where: {
-        id: data.marchentId,
-      },
-    });
-
-    if (!user) {
-      throw new AppError(status.NOT_FOUND, "User not found!");
-    }
-
-    // Step 4: Calculate Parcel Price
-    const totalPrice = calculateParcelPrice(
-      data.weight,
-      data.length,
-      data.width,
-      data.height
-    );
-
-    // Step 5: Generate Tracking ID
-    const trackingId = await generateUniqueTrackingId(7); // TRK-XXXXXXX
-
-    const apiKey = process.env.GEOCODING_API_KEY as string; // Replace with your geocoding API key
-    const countryCode = "au"; // Optional: Default is 'au'
-
-    // const pickupLocation = await getLocationByPostalCode(address.postalCode);
-
-    // Step 6: Get Pickup Location
-    const pickupLocation = await getLocationByPostalCode(
-      address.postalCode,
-      countryCode,
-      apiKey
-    );
-
-    // console.log({ pickupLocation });
-    const formattedPickupLocation = pickupLocation;
-
-    // Step 7: Get Delivery Location
-    const deliverLocation = await getLocationByPostalCode(
-      customer.postalCode,
-      countryCode,
-      apiKey
-    );
-
-    // console.log({ deliverLocation });
-    const formattedDeliverLocation = deliverLocation;
-    // Step 8: Create Parcel Record
-    const result = await tx.addParcel.create({
-      data: {
-        marchentId: data.marchentId,
-        customerId: data.customerId,
-        addressId: data.addressId,
-        type: data.type,
-        name: data.name,
-        weight: data.weight,
-        length: data.length,
-        width: data.width,
-        height: data.height,
-        description: data.description,
-        trackingId: trackingId,
-        amount: totalPrice,
-      },
-    });
-
-    // Step 9: Prepare Data for Shipday
-    const parcelData = {
-      orderNumber: result.id,
-      customerName: customer.Name,
-      customerAddress: formattedPickupLocation,
-      customerEmail: customer.Email,
-      customerPhoneNumber: customer.Phone,
-      restaurantName: user?.businessName || "Default Restaurant Name",
-      restaurantAddress: formattedDeliverLocation,
-      restaurantPhoneNumber: user?.phone || "1234567890",
-      totalOrderCost: totalPrice,
-    };
-
-    const location = await getFormattedLocation(
-      customer.postalCode,
-      "au",
-      process.env.GEOCODING_API_KEY as string
-    );
-
-    console.log({ location });
-
-    const shippoData = {
-      to_address: {
-        city: location?.city, // City from the delivery address
-        company: user?.businessName || "Default Restaurant Name", // Default restaurant name
-        country: "AU", // Set country to Australia (AU)
-        email: customer.Email, // Customer email from the schema
-        name: customer.Name, // Customer name
-        phone: customer.Phone, // Customer phone number
-        state: location?.state, // Customer state (ensure it's available in your data)
-        // street1: formattedDeliverLocation.street || "", // Street address from the formatted delivery location
-        zip: location?.postalCode, // Postal code from the formatted delivery location
-      },
-      line_items: [
-        {
-          quantity: 1, // Assuming a single parcel
-          sku: result.trackingId || "N/A", // Tracking ID from the result or "N/A" if not available
-          title: data.name || "Parcel", // Parcel name from the data input
-          total_price: totalPrice.toFixed(2), // Total price of the parcel, rounded to two decimal places
-          currency: "AUD", // Currency set to AUD
-          weight: data?.weight, // Ensure weight is a number and formatted to two decimal places
-          weight_unit: "kg", // Weight unit is in kilograms (kg)
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Basic ${process.env.SHIPDAY_API_KEY}`, // Your API key
         },
-      ],
-      placed_at: new Date().toISOString(), // Timestamp of when the parcel is placed
-      order_number: `#${result.id}`, // Order number is based on the parcel ID
-      order_status: "PAID", // Set the order status to "PAID"
-      shipping_cost: totalPrice.toFixed(2), // Shipping cost, based on the parcel's amount
-      shipping_cost_currency: "AUD", // Shipping cost in AUD
-      shipping_method: "Standard Delivery", // Assuming standard delivery, could be dynamic based on ParcelType
-      subtotal_price: totalPrice.toFixed(2), // Subtotal price based on the parcel's amount
-      total_price: (totalPrice + parseFloat(totalPrice.toFixed(2))).toFixed(2), // Total price including shipping cost
-      total_tax: "0.00", // Assuming no tax for now
-      currency: "AUD", // Currency used for the transaction
-      weight: data?.weight, // Total weight of the parcel
-      weight_unit: "kg", // Weight unit is in kilograms (kg)
-    };
+      }
+    );
 
-    // console.log({ shippoData });
+    return response.data; // Return the Shipday response
+  } catch (error) {
+    console.error("Error sending data to Shipday:", error);
+  }
+};
 
-    await createShippoOrder(shippoData);
+export const createShippoOrder = async (orderData: any) => {
+  // console.log(orderData);
+  const shippoAPIUrl = "https://api.goshippo.com/orders/";
 
-    // Step 10: Call Shipday API
-    const shipdayResponse = await sendParcelToShipday(parcelData);
-
-    await tx.addParcel.update({
-      where: { id: result.id },
-      data: {
-        shipdayOrderId: shipdayResponse?.orderId,
+  try {
+    // Step 1: Call the Shippo API to create the order
+    const response = await axios.post(shippoAPIUrl, orderData, {
+      headers: {
+        Authorization: `ShippoToken ${process.env.SHIPPO_API_KEY}`,
+        "Content-Type": "application/json",
       },
     });
+    // Step 2: If the Shippo API request is successful, store the order in Prisma
+  } catch (error) {
+    console.error("Error creating order:", error);
+    throw new Error("Error creating order");
+  }
+};
+async function getShipdayOrder(orderNumber: string) {
+  const url = `https://api.shipday.com/orders/${orderNumber}`;
+  const options = {
+    method: "GET",
+    headers: {
+      accept: "application/json",
+      Authorization: `Basic ${process.env.SHIPDAY_API_KEY}`,
+    },
+  };
 
-    // Step 11: Create Notification
-    const notification = await tx.notification.create({
-      data: {
-        title: `New parcel from ${data.marchentId}`,
-        parcelId: result.id,
-      },
-    });
+  try {
+    const response = await fetch(url, options);
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
+    const data = await response.json();
+    // console.log(data);
+    return data;
+  } catch (err) {
+    console.error("Error fetching order");
+  }
+}
 
-    // Step 12: Emit Notification
-    io.emit("new-notification", notification);
+// Example call
+getShipdayOrder("ordernumber");
 
-    return { ...result, shipdayOrderId: shipdayResponse?.orderId };
-  });
+const addParcel = async (data: AddParcel & { addressId: string }) => {
+  const prismaTransaction = await prisma.$transaction(
+    async (tx) => {
+      // Step 1: Fetch Customer
+      const customer = await tx.customer.findFirst({
+        where: {
+          id: data.customerId,
+          marchentId: data.marchentId,
+        },
+      });
+
+      if (!customer) {
+        throw new AppError(status.NOT_FOUND, "Customer not found!");
+      }
+
+      // Step 2: Fetch Address
+      const address = await tx.address.findFirst({
+        where: {
+          id: data.addressId,
+          marchentId: data.marchentId,
+        },
+      });
+
+      if (!address) {
+        throw new AppError(status.NOT_FOUND, "Address not found!");
+      }
+
+      // Step 3: Fetch User (Restaurant)
+      const user = await prisma.user.findFirst({
+        where: {
+          id: data.marchentId,
+        },
+      });
+
+      if (!user) {
+        throw new AppError(status.NOT_FOUND, "User not found!");
+      }
+
+      // Step 4: Calculate Parcel Price
+      const totalPrice = calculateParcelPrice(
+        data.weight,
+        data.length,
+        data.width,
+        data.height
+      );
+
+      // Step 5: Generate Tracking ID
+      const trackingId = await generateUniqueTrackingId(7); // TRK-XXXXXXX
+
+      const apiKey = process.env.GEOCODING_API_KEY as string; // Replace with your geocoding API key
+      const countryCode = "au"; // Optional: Default is 'au'
+
+      // const pickupLocation = await getLocationByPostalCode(address.postalCode);
+
+      // Step 6: Get Pickup Location
+      const pickupLocation = await getLocationByPostalCode(
+        address.postalCode,
+        countryCode,
+        apiKey
+      );
+
+      // console.log({ pickupLocation });
+      const formattedPickupLocation = pickupLocation;
+
+      // Step 7: Get Delivery Location
+      const deliverLocation = await getLocationByPostalCode(
+        customer.postalCode,
+        countryCode,
+        apiKey
+      );
+
+      // console.log({ deliverLocation });
+      const formattedDeliverLocation = deliverLocation;
+      // Step 8: Create Parcel Record
+      const result = await tx.addParcel.create({
+        data: {
+          marchentId: data.marchentId,
+          customerId: data.customerId,
+          addressId: data.addressId,
+          type: data.type,
+          name: data.name,
+          weight: data.weight,
+          length: data.length,
+          width: data.width,
+          height: data.height,
+          description: data.description,
+          trackingId: trackingId,
+          amount: totalPrice,
+        },
+      });
+
+      // Step 9: Prepare Data for Shipday
+      const parcelData = {
+        orderNumber: result.id,
+        customerName: customer.Name,
+        customerAddress: formattedPickupLocation,
+        customerEmail: customer.Email,
+        customerPhoneNumber: customer.Phone,
+        restaurantName: user?.businessName || "Default Restaurant Name",
+        restaurantAddress: formattedDeliverLocation,
+        restaurantPhoneNumber: user?.phone || "1234567890",
+        totalOrderCost: totalPrice,
+      };
+
+      const location = await getFormattedLocation(
+        customer.postalCode,
+        "au",
+        process.env.GEOCODING_API_KEY as string
+      );
+
+      // console.log({location});
+
+      const shippoData = {
+        to_address: {
+          city: location?.city, // City from the delivery address
+          company: user?.businessName || "Default Restaurant Name", // Default restaurant name
+          country: "AU", // Set country to Australia (AU)
+          email: customer.Email, // Customer email from the schema
+          name: customer.Name, // Customer name
+          phone: customer.Phone, // Customer phone number
+          state: location?.state, // Customer state (ensure it's available in your data)
+          // street1: formattedDeliverLocation.street || "", // Street address from the formatted delivery location
+          zip: location?.postalCode, // Postal code from the formatted delivery location
+        },
+        line_items: [
+          {
+            quantity: 1, // Assuming a single parcel
+            sku: result.trackingId || "N/A", // Tracking ID from the result or "N/A" if not available
+            title: data.name || "Parcel", // Parcel name from the data input
+            total_price: totalPrice.toFixed(2), // Total price of the parcel, rounded to two decimal places
+            currency: "AUD", // Currency set to AUD
+            weight: data?.weight, // Ensure weight is a number and formatted to two decimal places
+            weight_unit: "kg", // Weight unit is in kilograms (kg)
+          },
+        ],
+        placed_at: new Date().toISOString(), // Timestamp of when the parcel is placed
+        order_number: `#${result.id}`, // Order number is based on the parcel ID
+        order_status: "PAID", // Set the order status to "PAID"
+        shipping_cost: totalPrice.toFixed(2), // Shipping cost, based on the parcel's amount
+        shipping_cost_currency: "AUD", // Shipping cost in AUD
+        shipping_method: "Standard Delivery", // Assuming standard delivery, could be dynamic based on ParcelType
+        subtotal_price: totalPrice.toFixed(2), // Subtotal price based on the parcel's amount
+        total_price: (totalPrice + parseFloat(totalPrice.toFixed(2))).toFixed(
+          2
+        ), // Total price including shipping cost
+        total_tax: "0.00", // Assuming no tax for now
+        currency: "AUD", // Currency used for the transaction
+        weight: data?.weight, // Total weight of the parcel
+        weight_unit: "kg", // Weight unit is in kilograms (kg)
+      };
+
+      // console.log({ shippoData });
+
+      await createShippoOrder(shippoData);
+
+      // Step 10: Call Shipday API
+      const shipdayResponse = await sendParcelToShipday(parcelData);
+
+      // console.log({shipdayResponse});
+
+      const shipdayOrderInfo = await getShipdayOrder(result.id);
+      console.log(shipdayOrderInfo?.[0].trackingLink);
+      // ডাটা আছে কিনা চেক করো
+      if (!shipdayOrderInfo || shipdayOrderInfo.length === 0) {
+        throw new Error("Shipday order info not found");
+      }
+
+     const finalResult= await tx.addParcel.update({
+        where: { id: result.id },
+        data: {
+          shipdayOrderId: shipdayResponse?.orderId,
+          trackingLink: shipdayOrderInfo?.[0].trackingLink
+        },
+      });
+      // await tx.addParcel.update({
+      //   where: { id: result.id },
+      //   data: {
+      //     shipdayOrderId: shipdayResponse?.orderId,
+      //     trackingLink:shipdayOrderInfo[0]?.trackingLink
+      //   },
+      // });
+
+      // Step 11: Create Notification
+      const notification = await tx.notification.create({
+        data: {
+          title: `New parcel from ${data.marchentId}`,
+          parcelId: result.id,
+        },
+      });
+
+      // Step 12: Emit Notification
+      io.emit("new-notification", notification);
+
+      return { ...finalResult, shipdayOrderId: shipdayResponse?.orderId };
+    },
+    { timeout: 10000 }
+  );
 
   return prismaTransaction;
 };
@@ -512,7 +608,7 @@ const changeParcelStatus = async (
   const updatedParcelStatus =
     DeliveryToParcelStatusMap[newDeliveryStatus] ?? parcel.status;
 
-  console.log({ updatedParcelStatus });
+  // console.log({ updatedParcelStatus });
 
   // Step 8: Update the parcel with the new delivery status
   const updatedParcel = await prisma.addParcel.update({
@@ -526,7 +622,7 @@ const changeParcelStatus = async (
   // Step 7: Sync with Shipday
 
   const orderId = await getOrderId(id); // ফাংশন কল করে result পেতে হবে
-  console.log({ orderId });
+  // console.log({ orderId });
 
   await updateShipdayStatus(orderId, updatedParcelStatus);
 
