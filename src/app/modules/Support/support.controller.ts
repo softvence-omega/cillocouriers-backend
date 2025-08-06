@@ -16,6 +16,7 @@ const addSupport = catchAsync(async (req: Request & { user?: any }, res) => {
         const ImageName = `Image-${Date.now()}`;
         const imageLink = await uploadImageToSupabase(file.path as any, ImageName);
 
+        // console.log("Image Link .....",imageLink);
         attachementLiveLinks.push(imageLink);
 
         // Delete the local file after upload
