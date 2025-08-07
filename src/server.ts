@@ -10,7 +10,6 @@ async function main() {
   const httpServer: HTTPServer = app.listen(port, () => {
     console.log("🚀 UUING Courier Service is running on port", port);
   });
-
   const io = initSocket(httpServer); // ✅ init socket server
   initParcelService(io);             // ✅ send to service
 }

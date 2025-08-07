@@ -10,7 +10,6 @@ export const initSocket = (server: HTTPServer) => {
       origin: "*",
     },
   });
-
   io.on("connection", (socket) => {
     console.log("🟢 Socket connected:", socket.id);
 
@@ -18,7 +17,6 @@ export const initSocket = (server: HTTPServer) => {
       console.log("🔴 Socket disconnected:", socket.id);
     });
   });
-
   return io;
 };
 
