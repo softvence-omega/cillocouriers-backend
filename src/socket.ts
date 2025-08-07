@@ -1,13 +1,15 @@
+// src/socket.ts
 import { Server as HTTPServer } from "http";
 import { Server as SocketIOServer } from "socket.io";
 
+let io: SocketIOServer | null = null;
+
 export const initSocket = (server: HTTPServer) => {
-  const io = new SocketIOServer(server, {
+  io = new SocketIOServer(server, {
     cors: {
-      origin: "*", // frontend origin if needed
+      origin: "*",
     },
   });
-
   io.on("connection", (socket) => {
     console.log("🟢 Socket connected:", socket.id);
 
@@ -17,4 +19,8 @@ export const initSocket = (server: HTTPServer) => {
   });
 
   return io;
+};
+
+export const getIO = () => {
+  return io; // ✅ No more throwing error
 };

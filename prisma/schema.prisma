@@ -139,7 +139,6 @@ model Customer {
   user      User        @relation(fields: [marchentId], references: [id])
   AddParcel AddParcel[]
 }
-
 model AddParcel {
   id             String         @id @default(uuid())
   marchentId     String
@@ -168,7 +167,62 @@ model AddParcel {
   user           User           @relation(fields: [marchentId], references: [id])
   customar       Customer       @relation(fields: [customerId], references: [id])
   Notification   Notification[]
+  Payment        Payment?
 }
+
+
+model ShippoOrder {
+  id                      String   @id @default(cuid())
+
+  // to_address
+  to_name                 String
+  to_street1              String
+  to_city                 String
+  to_state                String
+  to_zip                  String
+  to_country              String
+  to_email                String
+  to_phone                String
+  to_company              String?
+
+  // order fields
+  placed_at               DateTime
+  order_number            String
+  order_status            String
+  shipping_cost           String
+  shipping_cost_currency  String
+  shipping_method         String
+  subtotal_price          String
+  total_price             String
+  total_tax               String
+  currency                String
+  total_weight            Float
+  weight_unit             String
+
+  // line_items array
+  line_items              ShippoLineItem[]
+
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+}
+
+model ShippoLineItem {
+  id            String   @id @default(cuid())
+  quantity      Int
+  sku           String
+  title         String
+  total_price   String
+  currency      String
+  weight        Float
+  weight_unit   String
+
+  // relation to order
+  orderId       String
+  order         ShippoOrder @relation(fields: [orderId], references: [id])
+
+  createdAt     DateTime @default(now())
+}
+
 
 model Notification {
   id        String    @id @default(uuid())
@@ -255,4 +309,18 @@ model Comment {
   updatedAt DateTime @updatedAt
 
   @@map("comments")
+}
+
+model Payment {
+  id              String    @id @default(cuid())
+  email           String
+  amount          Int
+  currency        String    @default("AUD") // Change default currency to AUD
+  stripeSessionId String    @unique
+  paymentIntentId String?
+  status          String?
+  parcelId        String    @unique
+  parcel          AddParcel @relation(fields: [parcelId], references: [id])
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 }

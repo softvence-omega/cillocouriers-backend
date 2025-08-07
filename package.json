@@ -45,6 +45,7 @@
     "socket.io": "^4.8.1",
     "sslcommerz-lts": "^1.1.0",
     "sslcommerz-nodejs": "^1.0.8",
+    "stripe": "^18.4.0",
     "uuid": "^11.1.0"
   }
 }
