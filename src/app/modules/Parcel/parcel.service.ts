@@ -27,6 +27,7 @@ export const initParcelService = (socket: SocketIOServer) => {
 const createStripeCheckoutSession = async (
   paymentData: TPaymentData,
   parcelData: TShipdayParcelData,
+  // shippoData: any,
   marchentId: string
 ) => {
   const { email, amount, parcelId } = paymentData;
@@ -53,10 +54,11 @@ const createStripeCheckoutSession = async (
       email,
       amount: amount.toString(),
       parcelData: JSON.stringify(parcelData),
+      // shippoData: JSON.stringify(shippoData),
       marchentId,
     },
-    success_url: http://localhost:3000/success,
-    cancel_url: http://localhost:3000/cancel,
+    success_url: `http://localhost:3000/success`,
+    cancel_url: `http://localhost:3000/cancel`,
   });
 
   return session.url;
@@ -83,7 +85,7 @@ export const sendParcelToShipday = async (parcelData: any) => {
       {
         headers: {
           "Content-Type": "application/json",
-          Authorization: Basic ${process.env.SHIPDAY_API_KEY}, // Your API key
+          Authorization: `Basic ${process.env.SHIPDAY_API_KEY}`, // Your API key
         },
       }
     );
@@ -95,17 +97,19 @@ export const sendParcelToShipday = async (parcelData: any) => {
 };
 
 export const createShippoOrder = async (orderData: any) => {
-  // console.log(orderData);
-  const shippoAPIUrl = "https://api.goshippo.com/orders/";
   
+  const shippoAPIUrl = "https://api.goshippo.com/orders/";
+
   try {
     // Step 1: Call the Shippo API to create the order
     const response = await axios.post(shippoAPIUrl, orderData, {
       headers: {
-        Authorization: ShippoToken ${process.env.SHIPPO_API_KEY},
+        Authorization: `ShippoToken ${process.env.SHIPPO_API_KEY}`,
         "Content-Type": "application/json",
       },
     });
+
+    console.log("shippoResponse from service", response);
     // Step 2: If the Shippo API request is successful, store the order in Prisma
   } catch (error) {
     console.error("Error creating order:", error);
@@ -113,12 +117,12 @@ export const createShippoOrder = async (orderData: any) => {
   }
 };
 export async function getShipdayOrder(orderNumber: string) {
-  const url = https://api.shipday.com/orders/${orderNumber};
+  const url = `https://api.shipday.com/orders/${orderNumber}`;
   const options = {
     method: "GET",
     headers: {
       accept: "application/json",
-      Authorization: Basic ${process.env.SHIPDAY_API_KEY},
+      Authorization: `Basic ${process.env.SHIPDAY_API_KEY}`,
     },
   };
 
@@ -134,7 +138,6 @@ export async function getShipdayOrder(orderNumber: string) {
     console.error("Error fetching order");
   }
 }
-
 
 const addParcel = async (data: AddParcel & { addressId: string }) => {
   const prismaTransaction = await prisma.$transaction(async (tx) => {
@@ -238,57 +241,134 @@ const addParcel = async (data: AddParcel & { addressId: string }) => {
       restaurantPhoneNumber: user?.phone || "1234567890",
       totalOrderCost: totalPrice,
     };
-    
+
     const location = await getFormattedLocation(
-        customer.postalCode,
-        "au",
-        process.env.GEOCODING_API_KEY as string
-      );
+      customer.postalCode,
+      "au",
+      process.env.GEOCODING_API_KEY as string
+    );
 
-      // console.log({location});
+    // console.log({location});
 
-      const shippoData = {
-        to_address: {
-          city: location?.city, // City from the delivery address
-          company: user?.businessName || "Default Restaurant Name", // Default restaurant name
-          country: "AU", // Set country to Australia (AU)
-          email: customer.Email, // Customer email from the schema
-          name: customer.Name, // Customer name
-          phone: customer.Phone, // Customer phone number
-          state: location?.state, // Customer state (ensure it's available in your data)
-          // street1: formattedDeliverLocation.street || "", // Street address from the formatted delivery location
-          zip: location?.postalCode, // Postal code from the formatted delivery location
+    const shippoData = {
+      to_address: {
+        name: customer.Name,
+        street1: location?.street,
+        city: location?.city,
+        state: location?.state,
+        zip: location?.postalCode,
+        country: "AU",
+        email: customer.Email,
+        phone: customer.Phone,
+        company: user?.businessName,
+      },
+      line_items: [
+        {
+          quantity: 1,
+          sku: result.trackingId,
+          title: data.name,
+          total_price: totalPrice.toFixed(2),
+          currency: "AUD",
+          weight: data?.weight,
+          weight_unit: "kg",
         },
-        line_items: [
-          {
-            quantity: 1, // Assuming a single parcel
-            sku: result.trackingId || "N/A", // Tracking ID from the result or "N/A" if not available
-            title: data.name || "Parcel", // Parcel name from the data input
-            total_price: totalPrice.toFixed(2), // Total price of the parcel, rounded to two decimal places
-            currency: "AUD", // Currency set to AUD
-            weight: data?.weight, // Ensure weight is a number and formatted to two decimal places
-            weight_unit: "kg", // Weight unit is in kilograms (kg)
-          },
-        ],
-        placed_at: new Date().toISOString(), // Timestamp of when the parcel is placed
-        order_number: #${result.id}, // Order number is based on the parcel ID
-        order_status: "PAID", // Set the order status to "PAID"
-        shipping_cost: totalPrice.toFixed(2), // Shipping cost, based on the parcel's amount
-        shipping_cost_currency: "AUD", // Shipping cost in AUD
-        shipping_method: "Standard Delivery", // Assuming standard delivery, could be dynamic based on ParcelType
-        subtotal_price: totalPrice.toFixed(2), // Subtotal price based on the parcel's amount
-        total_price: (totalPrice + parseFloat(totalPrice.toFixed(2))).toFixed(
-          2
-        ), // Total price including shipping cost
-        total_tax: "0.00", // Assuming no tax for now
-        currency: "AUD", // Currency used for the transaction
-        weight: data?.weight, // Total weight of the parcel
-        weight_unit: "kg", // Weight unit is in kilograms (kg)
-      };
+      ],
+      placed_at: new Date().toISOString(),
+      order_number: `#${result.id}`,
+      order_status: "PAID",
+      shipping_cost: totalPrice.toFixed(2),
+      shipping_cost_currency: "AUD",
+      shipping_method: "Standard Delivery",
+      subtotal_price: totalPrice.toFixed(2),
+      total_price: (totalPrice + parseFloat(totalPrice.toFixed(2))).toFixed(2),
+      total_tax: "0.00",
+      currency: "AUD",
+      weight: parseFloat(data?.weight),
+      weight_unit: "kg",
+    };
+
+await prisma.shippoOrder.create({
+  data: {
+    // Flatten to_address
+    to_name: shippoData.to_address.name,
+    to_street1: shippoData.to_address.street1!,
+    to_city: shippoData.to_address.city!,
+    to_state: shippoData.to_address.state!,
+    to_zip: shippoData.to_address.zip!,
+    to_country: shippoData.to_address.country,
+    to_email: shippoData.to_address.email,
+    to_phone: shippoData.to_address.phone,
+    to_company: shippoData.to_address.company ?? "",
+
+    // Order fields
+    placed_at: new Date(shippoData.placed_at),
+    order_number: shippoData.order_number,
+    order_status: shippoData.order_status,
+    shipping_cost: shippoData.shipping_cost,
+    shipping_cost_currency: shippoData.shipping_cost_currency,
+    shipping_method: shippoData.shipping_method,
+    subtotal_price: shippoData.subtotal_price,
+    total_price: shippoData.total_price,
+    total_tax: shippoData.total_tax,
+    currency: shippoData.currency,
+    total_weight: shippoData.weight,
+    weight_unit: shippoData.weight_unit,
+
+    // Related line items
+    line_items: {
+      create: shippoData.line_items.map((item) => ({
+        quantity: item.quantity,
+        sku: item.sku ?? "",
+        title: item.title,
+        total_price: item.total_price,
+        currency: item.currency,
+        weight: typeof item.weight === "string" ? parseFloat(item.weight) : item.weight,
+        weight_unit: item.weight_unit,
+      })),
+    },
+  },
+});
 
 
-    console.log("ServiceparcelData:", parcelData);
+    // const shippoData = {
+    //   to_address: {
+    //     city: location?.city,
+    //     company: user?.businessName,
+    //     country: "AU",
+    //     email: customer.Email,
+    //     name: customer.Name,
+    //     phone: customer.Phone,
+    //     state: location?.state,
+    //     street1: location?.street,
 
+    //     zip: location?.postalCode,
+    //   },
+    //   line_items: [
+    //     {
+    //       quantity: 1,
+    //       sku: result.trackingId,
+    //       title: data.name,
+    //       // total_price: totalPrice.toFixed(2),
+    //       // currency: "AUD",
+    //       weight: data?.weight,
+    //       weight_unit: "kg",
+    //     },
+    //   ],
+    //   placed_at: new Date().toISOString(),
+    //   order_number: `#${result.id}`,
+    //   order_status: "PAID",
+    //   shipping_cost: totalPrice.toFixed(2),
+    //   // shipping_cost_currency: "AUD",
+    //   // shipping_method: "Standard Delivery",
+    //   // subtotal_price: totalPrice.toFixed(2),
+    //   // total_price: (totalPrice + parseFloat(totalPrice.toFixed(2))).toFixed(
+    //   //   2
+    //   // ),
+    //   // total_tax: "0.00",
+    //   currency: "AUD",
+    //   weight: data?.weight,
+    //   weight_unit: "kg",
+    // };
 
 
     const paymentData = {
@@ -302,24 +382,16 @@ const addParcel = async (data: AddParcel & { addressId: string }) => {
     const response = await createStripeCheckoutSession(
       paymentData,
       parcelData,
-      shippoData,
+      // shippoData,
       user?.id
     );
-    console.log({ response });
+    // console.log({ response });
 
-    
-
-    return { ...result, paymentUrl: response };
+    return { paymentUrl: response };
   });
 
   return prismaTransaction;
 };
-
-
-
-
-
-
 
 const getAllParcels = async (options: any) => {
   const { page, limit, skip, sortBy, sortOrder } =
@@ -423,10 +495,10 @@ const getSingleParcel = async (id: string) => {
   try {
     // First, fetch the parcel details from Shipday API
     const shipdayResponse = await axios.get(
-      https://api.shipday.com/orders/${id},
+      `https://api.shipday.com/orders/${id}`,
       {
         headers: {
-          Authorization: Basic ${process.env.SHIPDAY_API_KEY}, // Use the correct authorization method
+          Authorization: `Basic ${process.env.SHIPDAY_API_KEY}`, // Use the correct authorization method
           Accept: "application/json",
         },
       }
@@ -514,11 +586,11 @@ const updateShipdayStatus = async (orderId: string, status: string) => {
 
   try {
     const response = await axios.put(
-      https://api.shipday.com/orders/${orderId}/status,
+      `https://api.shipday.com/orders/${orderId}/status`,
       { status }, // Only status is needed
       {
         headers: {
-          Authorization: Basic ${process.env.SHIPDAY_API_KEY}, // Must be valid
+          Authorization: `Basic ${process.env.SHIPDAY_API_KEY}`, // Must be valid
           Accept: "application/json",
           "Content-Type": "application/json",
         },
@@ -541,12 +613,12 @@ const updateShipdayStatus = async (orderId: string, status: string) => {
 
 const getOrderId = async (id: string) => {
   try {
-    const url = https://api.shipday.com/orders/${id};
+    const url = `https://api.shipday.com/orders/${id}`;
     const options = {
       method: "GET",
       headers: {
         accept: "application/json",
-        Authorization: Basic ${process.env.SHIPDAY_API_KEY},
+        Authorization: `Basic ${process.env.SHIPDAY_API_KEY}`,
       },
     };
 
@@ -619,7 +691,7 @@ const changeParcelStatus = async (
   if (nextOrder < currentOrder) {
     throw new AppError(
       400,
-      Cannot move from ${currentDeliveryStatus} to ${newDeliveryStatus}.
+      `Cannot move from ${currentDeliveryStatus} to ${newDeliveryStatus}.`
     );
   }
 
@@ -627,7 +699,7 @@ const changeParcelStatus = async (
   if (nextOrder === currentOrder) {
     throw new AppError(
       400,
-      Parcel is already in ${newDeliveryStatus} status.
+      `Parcel is already in ${newDeliveryStatus} status.`
     );
   }
 
@@ -664,4 +736,3 @@ export const ParcelService = {
   getAllParcels,
   changeParcelStatus,
 };
-
