@@ -10,51 +10,18 @@ import { generateUniqueTrackingId } from "../../../helpers/generateUniqueTrackin
 import { getLocationByPostalCode } from "../../../helpers/getLocationByPostalCode";
 import calculateParcelPrice from "../../../helpers/calculateParcelPrice";
 import axios from "axios";
-import config from "../../../config";
+import { getFormattedLocation } from "../../../helpers/getFormattedLocation";
 import Stripe from "stripe";
+import config from "../../../config";
 import {
   TParcelData,
   TPaymentData,
   TShipdayParcelData,
 } from "../../../types/parcel";
 let io: SocketIOServer;
-
 export const stripe = new Stripe(config.stripe_secret_key as string);
-
 export const initParcelService = (socket: SocketIOServer) => {
   io = socket;
-};
-
-export const sendParcelToShipday = async (parcelData: any) => {
-  console.log({ parcelData });
-  try {
-    // Send the data to Shipday API
-    const response = await axios.post(
-      "https://dispatch.shipday.com/orders", // Correct API endpoint
-
-      {
-        orderNumber: parcelData.orderNumber,
-        customerName: parcelData.customerName,
-        customerAddress: parcelData.customerAddress,
-        customerEmail: parcelData.customerEmail,
-        customerPhoneNumber: parcelData.customerPhoneNumber,
-        restaurantName: parcelData.restaurantName,
-        restaurantAddress: parcelData.restaurantAddress,
-        restaurantPhoneNumber: parcelData.restaurantPhoneNumber,
-        totalOrderCost: parcelData.totalOrderCost,
-      },
-      {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Basic ${process.env.SHIPDAY_API_KEY}`, // Your API key
-        },
-      }
-    );
-
-    return response.data; // Return the Shipday response
-  } catch (error) {
-    console.error("Error sending data to Shipday:", error);
-  }
 };
 
 const createStripeCheckoutSession = async (
@@ -88,12 +55,86 @@ const createStripeCheckoutSession = async (
       parcelData: JSON.stringify(parcelData),
       marchentId,
     },
-    success_url: `http://localhost:3000/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `http://localhost:3000/cancel`,
+    success_url: http://localhost:3000/success,
+    cancel_url: http://localhost:3000/cancel,
   });
 
   return session.url;
 };
+
+export const sendParcelToShipday = async (parcelData: any) => {
+  // console.log({ parcelData });
+  try {
+    // Send the data to Shipday API
+    const response = await axios.post(
+      "https://dispatch.shipday.com/orders", // Correct API endpoint
+
+      {
+        orderNumber: parcelData.orderNumber,
+        customerName: parcelData.customerName,
+        customerAddress: parcelData.customerAddress,
+        customerEmail: parcelData.customerEmail,
+        customerPhoneNumber: parcelData.customerPhoneNumber,
+        restaurantName: parcelData.restaurantName,
+        restaurantAddress: parcelData.restaurantAddress,
+        restaurantPhoneNumber: parcelData.restaurantPhoneNumber,
+        totalOrderCost: parcelData.totalOrderCost,
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: Basic ${process.env.SHIPDAY_API_KEY}, // Your API key
+        },
+      }
+    );
+
+    return response.data; // Return the Shipday response
+  } catch (error) {
+    console.error("Error sending data to Shipday:", error);
+  }
+};
+
+export const createShippoOrder = async (orderData: any) => {
+  // console.log(orderData);
+  const shippoAPIUrl = "https://api.goshippo.com/orders/";
+  
+  try {
+    // Step 1: Call the Shippo API to create the order
+    const response = await axios.post(shippoAPIUrl, orderData, {
+      headers: {
+        Authorization: ShippoToken ${process.env.SHIPPO_API_KEY},
+        "Content-Type": "application/json",
+      },
+    });
+    // Step 2: If the Shippo API request is successful, store the order in Prisma
+  } catch (error) {
+    console.error("Error creating order:", error);
+    throw new Error("Error creating order");
+  }
+};
+export async function getShipdayOrder(orderNumber: string) {
+  const url = https://api.shipday.com/orders/${orderNumber};
+  const options = {
+    method: "GET",
+    headers: {
+      accept: "application/json",
+      Authorization: Basic ${process.env.SHIPDAY_API_KEY},
+    },
+  };
+
+  try {
+    const response = await fetch(url, options);
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
+    const data = await response.json();
+    // console.log(data);
+    return data;
+  } catch (err) {
+    console.error("Error fetching order");
+  }
+}
+
 
 const addParcel = async (data: AddParcel & { addressId: string }) => {
   const prismaTransaction = await prisma.$transaction(async (tx) => {
@@ -197,8 +238,58 @@ const addParcel = async (data: AddParcel & { addressId: string }) => {
       restaurantPhoneNumber: user?.phone || "1234567890",
       totalOrderCost: totalPrice,
     };
+    
+    const location = await getFormattedLocation(
+        customer.postalCode,
+        "au",
+        process.env.GEOCODING_API_KEY as string
+      );
+
+      // console.log({location});
+
+      const shippoData = {
+        to_address: {
+          city: location?.city, // City from the delivery address
+          company: user?.businessName || "Default Restaurant Name", // Default restaurant name
+          country: "AU", // Set country to Australia (AU)
+          email: customer.Email, // Customer email from the schema
+          name: customer.Name, // Customer name
+          phone: customer.Phone, // Customer phone number
+          state: location?.state, // Customer state (ensure it's available in your data)
+          // street1: formattedDeliverLocation.street || "", // Street address from the formatted delivery location
+          zip: location?.postalCode, // Postal code from the formatted delivery location
+        },
+        line_items: [
+          {
+            quantity: 1, // Assuming a single parcel
+            sku: result.trackingId || "N/A", // Tracking ID from the result or "N/A" if not available
+            title: data.name || "Parcel", // Parcel name from the data input
+            total_price: totalPrice.toFixed(2), // Total price of the parcel, rounded to two decimal places
+            currency: "AUD", // Currency set to AUD
+            weight: data?.weight, // Ensure weight is a number and formatted to two decimal places
+            weight_unit: "kg", // Weight unit is in kilograms (kg)
+          },
+        ],
+        placed_at: new Date().toISOString(), // Timestamp of when the parcel is placed
+        order_number: #${result.id}, // Order number is based on the parcel ID
+        order_status: "PAID", // Set the order status to "PAID"
+        shipping_cost: totalPrice.toFixed(2), // Shipping cost, based on the parcel's amount
+        shipping_cost_currency: "AUD", // Shipping cost in AUD
+        shipping_method: "Standard Delivery", // Assuming standard delivery, could be dynamic based on ParcelType
+        subtotal_price: totalPrice.toFixed(2), // Subtotal price based on the parcel's amount
+        total_price: (totalPrice + parseFloat(totalPrice.toFixed(2))).toFixed(
+          2
+        ), // Total price including shipping cost
+        total_tax: "0.00", // Assuming no tax for now
+        currency: "AUD", // Currency used for the transaction
+        weight: data?.weight, // Total weight of the parcel
+        weight_unit: "kg", // Weight unit is in kilograms (kg)
+      };
+
 
     console.log("ServiceparcelData:", parcelData);
+
+
 
     const paymentData = {
       email: user?.email,
@@ -211,74 +302,24 @@ const addParcel = async (data: AddParcel & { addressId: string }) => {
     const response = await createStripeCheckoutSession(
       paymentData,
       parcelData,
+      shippoData,
       user?.id
     );
     console.log({ response });
 
-    // const findPaymentInfo = await prisma.payment.findFirst({
-    //   where: {
-    //     id: result.id,
-    //   },
-    // });
-
-    // if(findPaymentInfo){
-    //   await prisma.addParcel.update({
-    //     where:{
-    //       id:result.id
-    //     },
-    //     data:{
-    //       paymentStatus:"PAID"
-    //     }
-    //   })
-    //   // Step 9: Prepare Data for Shipday
-    // const parcelData = {
-    //   orderNumber: result.id,
-    //   customerName: customer.Name,
-    //   customerAddress: formattedPickupLocation,
-    //   customerEmail: customer.Email,
-    //   customerPhoneNumber: customer.Phone,
-    //   restaurantName: user?.businessName || "Default Restaurant Name",
-    //   restaurantAddress: formattedDeliverLocation,
-    //   restaurantPhoneNumber: user?.phone || "1234567890",
-    //   totalOrderCost: totalPrice,
-    // };
-
-    // // Step 10: Call Shipday API
-    // const shipdayResponse = await sendParcelToShipday(parcelData);
-    // console.log('shipdayResponseFromService:', shipdayResponse);
-
-    // await tx.addParcel.update({
-    //   where: { id: result.id },
-    //   data: {
-    //     shipdayOrderId: shipdayResponse?.orderId,
-    //   },
-    // });
-
-    // // Step 11: Create Notification
-    // const notification = await tx.notification.create({
-    //   data: {
-    //     title: `New parcel from ${data.marchentId}`,
-    //     parcelId: result.id,
-    //   },
-    // });
-
-    // // Step 12: Emit Notification
-    // io.emit("new-notification", notification);
-
-    // return { ...result, shipdayOrderId: shipdayResponse?.orderId };
-    // }else{
-    //   await prisma.addParcel.delete({
-    //     where:{
-    //       id:result.id
-    //     }
-    //   })
-    // }
+    
 
     return { ...result, paymentUrl: response };
   });
 
   return prismaTransaction;
 };
+
+
+
+
+
+
 
 const getAllParcels = async (options: any) => {
   const { page, limit, skip, sortBy, sortOrder } =
@@ -382,10 +423,10 @@ const getSingleParcel = async (id: string) => {
   try {
     // First, fetch the parcel details from Shipday API
     const shipdayResponse = await axios.get(
-      `https://api.shipday.com/orders/${id}`,
+      https://api.shipday.com/orders/${id},
       {
         headers: {
-          Authorization: `Basic ${process.env.SHIPDAY_API_KEY}`, // Use the correct authorization method
+          Authorization: Basic ${process.env.SHIPDAY_API_KEY}, // Use the correct authorization method
           Accept: "application/json",
         },
       }
@@ -473,11 +514,11 @@ const updateShipdayStatus = async (orderId: string, status: string) => {
 
   try {
     const response = await axios.put(
-      `https://api.shipday.com/orders/${orderId}/status`,
+      https://api.shipday.com/orders/${orderId}/status,
       { status }, // Only status is needed
       {
         headers: {
-          Authorization: `Basic ${process.env.SHIPDAY_API_KEY}`, // Must be valid
+          Authorization: Basic ${process.env.SHIPDAY_API_KEY}, // Must be valid
           Accept: "application/json",
           "Content-Type": "application/json",
         },
@@ -500,12 +541,12 @@ const updateShipdayStatus = async (orderId: string, status: string) => {
 
 const getOrderId = async (id: string) => {
   try {
-    const url = `https://api.shipday.com/orders/${id}`;
+    const url = https://api.shipday.com/orders/${id};
     const options = {
       method: "GET",
       headers: {
         accept: "application/json",
-        Authorization: `Basic ${process.env.SHIPDAY_API_KEY}`,
+        Authorization: Basic ${process.env.SHIPDAY_API_KEY},
       },
     };
 
@@ -578,7 +619,7 @@ const changeParcelStatus = async (
   if (nextOrder < currentOrder) {
     throw new AppError(
       400,
-      `Cannot move from ${currentDeliveryStatus} to ${newDeliveryStatus}.`
+      Cannot move from ${currentDeliveryStatus} to ${newDeliveryStatus}.
     );
   }
 
@@ -586,7 +627,7 @@ const changeParcelStatus = async (
   if (nextOrder === currentOrder) {
     throw new AppError(
       400,
-      `Parcel is already in ${newDeliveryStatus} status.`
+      Parcel is already in ${newDeliveryStatus} status.
     );
   }
 
@@ -594,7 +635,7 @@ const changeParcelStatus = async (
   const updatedParcelStatus =
     DeliveryToParcelStatusMap[newDeliveryStatus] ?? parcel.status;
 
-  console.log({ updatedParcelStatus });
+  // console.log({ updatedParcelStatus });
 
   // Step 8: Update the parcel with the new delivery status
   const updatedParcel = await prisma.addParcel.update({
@@ -608,7 +649,7 @@ const changeParcelStatus = async (
   // Step 7: Sync with Shipday
 
   const orderId = await getOrderId(id); // ফাংশন কল করে result পেতে হবে
-  console.log({ orderId });
+  // console.log({ orderId });
 
   await updateShipdayStatus(orderId, updatedParcelStatus);
 
@@ -623,3 +664,4 @@ export const ParcelService = {
   getAllParcels,
   changeParcelStatus,
 };
+

@@ -156,6 +156,7 @@ model AddParcel {
   notes          String?
   trackingId     String?        @unique
   shipdayOrderId Int? // ✅ Nullable Number
+  trackingLink String?
   status         ParcelStatus   @default(PENDING)
   deliveryStatus DeliveryStatus @default(PENDING)
   amount         Float?
