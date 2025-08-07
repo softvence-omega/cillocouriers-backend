@@ -10,7 +10,6 @@ export const initSocket = (server: HTTPServer) => {
       origin: "*",
     },
   });
-
   io.on("connection", (socket) => {
     console.log("🟢 Socket connected:", socket.id);
 
