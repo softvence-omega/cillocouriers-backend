@@ -11,13 +11,58 @@ import { getLocationByPostalCode } from "../../../helpers/getLocationByPostalCod
 import calculateParcelPrice from "../../../helpers/calculateParcelPrice";
 import axios from "axios";
 import { getFormattedLocation } from "../../../helpers/getFormattedLocation";
+import Stripe from "stripe";
+import config from "../../../config";
+import {
+  TParcelData,
+  TPaymentData,
+  TShipdayParcelData,
+} from "../../../types/parcel";
 let io: SocketIOServer;
-
+export const stripe = new Stripe(config.stripe_secret_key as string);
 export const initParcelService = (socket: SocketIOServer) => {
   io = socket;
 };
 
-const sendParcelToShipday = async (parcelData: any) => {
+const createStripeCheckoutSession = async (
+  paymentData: TPaymentData,
+  parcelData: TShipdayParcelData,
+  marchentId: string
+) => {
+  const { email, amount, parcelId } = paymentData;
+  const existingCustomer = await stripe.customers.list({ email, limit: 1 });
+  const customer =
+    existingCustomer.data[0] || (await stripe.customers.create({ email }));
+
+  const session = await stripe.checkout.sessions.create({
+    payment_method_types: ["card"],
+    mode: "payment",
+    customer: customer.id,
+    line_items: [
+      {
+        price_data: {
+          currency: "usd",
+          unit_amount: amount * 100,
+          product_data: { name: "Courier Service Payment" },
+        },
+        quantity: 1,
+      },
+    ],
+    metadata: {
+      parcelId: parcelId.toString(),
+      email,
+      amount: amount.toString(),
+      parcelData: JSON.stringify(parcelData),
+      marchentId,
+    },
+    success_url: http://localhost:3000/success,
+    cancel_url: http://localhost:3000/cancel,
+  });
+
+  return session.url;
+};
+
+export const sendParcelToShipday = async (parcelData: any) => {
   // console.log({ parcelData });
   try {
     // Send the data to Shipday API
@@ -38,7 +83,7 @@ const sendParcelToShipday = async (parcelData: any) => {
       {
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Basic ${process.env.SHIPDAY_API_KEY}`, // Your API key
+          Authorization: Basic ${process.env.SHIPDAY_API_KEY}, // Your API key
         },
       }
     );
@@ -52,12 +97,12 @@ const sendParcelToShipday = async (parcelData: any) => {
 export const createShippoOrder = async (orderData: any) => {
   // console.log(orderData);
   const shippoAPIUrl = "https://api.goshippo.com/orders/";
-
+  
   try {
     // Step 1: Call the Shippo API to create the order
     const response = await axios.post(shippoAPIUrl, orderData, {
       headers: {
-        Authorization: `ShippoToken ${process.env.SHIPPO_API_KEY}`,
+        Authorization: ShippoToken ${process.env.SHIPPO_API_KEY},
         "Content-Type": "application/json",
       },
     });
@@ -67,13 +112,13 @@ export const createShippoOrder = async (orderData: any) => {
     throw new Error("Error creating order");
   }
 };
-async function getShipdayOrder(orderNumber: string) {
-  const url = `https://api.shipday.com/orders/${orderNumber}`;
+export async function getShipdayOrder(orderNumber: string) {
+  const url = https://api.shipday.com/orders/${orderNumber};
   const options = {
     method: "GET",
     headers: {
       accept: "application/json",
-      Authorization: `Basic ${process.env.SHIPDAY_API_KEY}`,
+      Authorization: Basic ${process.env.SHIPDAY_API_KEY},
     },
   };
 
@@ -90,114 +135,111 @@ async function getShipdayOrder(orderNumber: string) {
   }
 }
 
-// Example call
-getShipdayOrder("ordernumber");
 
 const addParcel = async (data: AddParcel & { addressId: string }) => {
-  const prismaTransaction = await prisma.$transaction(
-    async (tx) => {
-      // Step 1: Fetch Customer
-      const customer = await tx.customer.findFirst({
-        where: {
-          id: data.customerId,
-          marchentId: data.marchentId,
-        },
-      });
+  const prismaTransaction = await prisma.$transaction(async (tx) => {
+    // Step 1: Fetch Customer
+    const customer = await tx.customer.findFirst({
+      where: {
+        id: data.customerId,
+        marchentId: data.marchentId,
+      },
+    });
 
-      if (!customer) {
-        throw new AppError(status.NOT_FOUND, "Customer not found!");
-      }
+    if (!customer) {
+      throw new AppError(status.NOT_FOUND, "Customer not found!");
+    }
 
-      // Step 2: Fetch Address
-      const address = await tx.address.findFirst({
-        where: {
-          id: data.addressId,
-          marchentId: data.marchentId,
-        },
-      });
+    // Step 2: Fetch Address
+    const address = await tx.address.findFirst({
+      where: {
+        id: data.addressId,
+        marchentId: data.marchentId,
+      },
+    });
 
-      if (!address) {
-        throw new AppError(status.NOT_FOUND, "Address not found!");
-      }
+    if (!address) {
+      throw new AppError(status.NOT_FOUND, "Address not found!");
+    }
 
-      // Step 3: Fetch User (Restaurant)
-      const user = await prisma.user.findFirst({
-        where: {
-          id: data.marchentId,
-        },
-      });
+    // Step 3: Fetch User (Restaurant)
+    const user = await prisma.user.findFirst({
+      where: {
+        id: data.marchentId,
+      },
+    });
 
-      if (!user) {
-        throw new AppError(status.NOT_FOUND, "User not found!");
-      }
+    if (!user) {
+      throw new AppError(status.NOT_FOUND, "User not found!");
+    }
 
-      // Step 4: Calculate Parcel Price
-      const totalPrice = calculateParcelPrice(
-        data.weight,
-        data.length,
-        data.width,
-        data.height
-      );
+    // Step 4: Calculate Parcel Price
+    const totalPrice = calculateParcelPrice(
+      data.weight,
+      data.length,
+      data.width,
+      data.height
+    );
 
-      // Step 5: Generate Tracking ID
-      const trackingId = await generateUniqueTrackingId(7); // TRK-XXXXXXX
+    // Step 5: Generate Tracking ID
+    const trackingId = await generateUniqueTrackingId(7); // TRK-XXXXXXX
 
-      const apiKey = process.env.GEOCODING_API_KEY as string; // Replace with your geocoding API key
-      const countryCode = "au"; // Optional: Default is 'au'
+    const apiKey = process.env.GEOCODING_API_KEY as string; // Replace with your geocoding API key
+    const countryCode = "au"; // Optional: Default is 'au'
 
-      // const pickupLocation = await getLocationByPostalCode(address.postalCode);
+    // const pickupLocation = await getLocationByPostalCode(address.postalCode);
 
-      // Step 6: Get Pickup Location
-      const pickupLocation = await getLocationByPostalCode(
-        address.postalCode,
-        countryCode,
-        apiKey
-      );
+    // Step 6: Get Pickup Location
+    const pickupLocation = await getLocationByPostalCode(
+      address.postalCode,
+      countryCode,
+      apiKey
+    );
 
-      // console.log({ pickupLocation });
-      const formattedPickupLocation = pickupLocation;
+    // console.log({ pickupLocation });
+    const formattedPickupLocation = pickupLocation;
 
-      // Step 7: Get Delivery Location
-      const deliverLocation = await getLocationByPostalCode(
-        customer.postalCode,
-        countryCode,
-        apiKey
-      );
+    // Step 7: Get Delivery Location
+    const deliverLocation = await getLocationByPostalCode(
+      customer.postalCode,
+      countryCode,
+      apiKey
+    );
 
-      // console.log({ deliverLocation });
-      const formattedDeliverLocation = deliverLocation;
-      // Step 8: Create Parcel Record
-      const result = await tx.addParcel.create({
-        data: {
-          marchentId: data.marchentId,
-          customerId: data.customerId,
-          addressId: data.addressId,
-          type: data.type,
-          name: data.name,
-          weight: data.weight,
-          length: data.length,
-          width: data.width,
-          height: data.height,
-          description: data.description,
-          trackingId: trackingId,
-          amount: totalPrice,
-        },
-      });
+    // console.log({ deliverLocation });
+    const formattedDeliverLocation = deliverLocation;
+    // Step 8: Create Parcel Record
+    const result = await tx.addParcel.create({
+      data: {
+        marchentId: data.marchentId,
+        customerId: data.customerId,
+        addressId: data.addressId,
+        type: data.type,
+        name: data.name,
+        weight: data.weight,
+        length: data.length,
+        width: data.width,
+        height: data.height,
+        description: data.description,
+        trackingId: trackingId,
+        amount: totalPrice,
+      },
+    });
 
-      // Step 9: Prepare Data for Shipday
-      const parcelData = {
-        orderNumber: result.id,
-        customerName: customer.Name,
-        customerAddress: formattedPickupLocation,
-        customerEmail: customer.Email,
-        customerPhoneNumber: customer.Phone,
-        restaurantName: user?.businessName || "Default Restaurant Name",
-        restaurantAddress: formattedDeliverLocation,
-        restaurantPhoneNumber: user?.phone || "1234567890",
-        totalOrderCost: totalPrice,
-      };
-
-      const location = await getFormattedLocation(
+    // Prepare Data for Shipday
+    const parcelData: TShipdayParcelData = {
+      orderNumber: result.id,
+      customerName: customer.Name,
+      customerAddress: formattedPickupLocation,
+      customerEmail: customer.Email,
+      customerPhoneNumber: customer.Phone,
+      restaurantName: user?.businessName || "Default Restaurant Name",
+      restaurantAddress: formattedDeliverLocation,
+      restaurantPhoneNumber: user?.phone || "1234567890",
+      totalOrderCost: totalPrice,
+    };
+    
+    const location = await getFormattedLocation(
         customer.postalCode,
         "au",
         process.env.GEOCODING_API_KEY as string
@@ -229,7 +271,7 @@ const addParcel = async (data: AddParcel & { addressId: string }) => {
           },
         ],
         placed_at: new Date().toISOString(), // Timestamp of when the parcel is placed
-        order_number: `#${result.id}`, // Order number is based on the parcel ID
+        order_number: #${result.id}, // Order number is based on the parcel ID
         order_status: "PAID", // Set the order status to "PAID"
         shipping_cost: totalPrice.toFixed(2), // Shipping cost, based on the parcel's amount
         shipping_cost_currency: "AUD", // Shipping cost in AUD
@@ -244,55 +286,40 @@ const addParcel = async (data: AddParcel & { addressId: string }) => {
         weight_unit: "kg", // Weight unit is in kilograms (kg)
       };
 
-      // console.log({ shippoData });
 
-      await createShippoOrder(shippoData);
+    console.log("ServiceparcelData:", parcelData);
 
-      // Step 10: Call Shipday API
-      const shipdayResponse = await sendParcelToShipday(parcelData);
 
-      // console.log({shipdayResponse});
 
-      const shipdayOrderInfo = await getShipdayOrder(result.id);
-      // console.log(shipdayOrderInfo?.[0].trackingLink);
-      // ডাটা আছে কিনা চেক করো
-      if (!shipdayOrderInfo || shipdayOrderInfo.length === 0) {
-        throw new Error("Shipday order info not found");
-      }
+    const paymentData = {
+      email: user?.email,
+      amount: totalPrice,
+      parcelId: result.id,
+    };
 
-     const finalResult= await tx.addParcel.update({
-        where: { id: result.id },
-        data: {
-          shipdayOrderId: shipdayResponse?.orderId,
-          trackingLink: shipdayOrderInfo?.[0].trackingLink
-        },
-      });
-      // await tx.addParcel.update({
-      //   where: { id: result.id },
-      //   data: {
-      //     shipdayOrderId: shipdayResponse?.orderId,
-      //     trackingLink:shipdayOrderInfo[0]?.trackingLink
-      //   },
-      // });
+    // console.log({paymentData})
 
-      // Step 11: Create Notification
-      const notification = await tx.notification.create({
-        data: {
-          title: `New parcel from ${data.marchentId}`,
-          parcelId: result.id,
-        },
-      });
+    const response = await createStripeCheckoutSession(
+      paymentData,
+      parcelData,
+      shippoData,
+      user?.id
+    );
+    console.log({ response });
 
-      // Step 12: Emit Notification
-      io.emit("new-notification", notification);
+    
 
-      return { ...finalResult, shipdayOrderId: shipdayResponse?.orderId };
-    },
-    { timeout: 10000 }
-  );
+    return { ...result, paymentUrl: response };
+  });
 
   return prismaTransaction;
 };
+
+
+
+
+
+
 
 const getAllParcels = async (options: any) => {
   const { page, limit, skip, sortBy, sortOrder } =
@@ -396,10 +423,10 @@ const getSingleParcel = async (id: string) => {
   try {
     // First, fetch the parcel details from Shipday API
     const shipdayResponse = await axios.get(
-      `https://api.shipday.com/orders/${id}`,
+      https://api.shipday.com/orders/${id},
       {
         headers: {
-          Authorization: `Basic ${process.env.SHIPDAY_API_KEY}`, // Use the correct authorization method
+          Authorization: Basic ${process.env.SHIPDAY_API_KEY}, // Use the correct authorization method
           Accept: "application/json",
         },
       }
@@ -487,11 +514,11 @@ const updateShipdayStatus = async (orderId: string, status: string) => {
 
   try {
     const response = await axios.put(
-      `https://api.shipday.com/orders/${orderId}/status`,
+      https://api.shipday.com/orders/${orderId}/status,
       { status }, // Only status is needed
       {
         headers: {
-          Authorization: `Basic ${process.env.SHIPDAY_API_KEY}`, // Must be valid
+          Authorization: Basic ${process.env.SHIPDAY_API_KEY}, // Must be valid
           Accept: "application/json",
           "Content-Type": "application/json",
         },
@@ -514,12 +541,12 @@ const updateShipdayStatus = async (orderId: string, status: string) => {
 
 const getOrderId = async (id: string) => {
   try {
-    const url = `https://api.shipday.com/orders/${id}`;
+    const url = https://api.shipday.com/orders/${id};
     const options = {
       method: "GET",
       headers: {
         accept: "application/json",
-        Authorization: `Basic ${process.env.SHIPDAY_API_KEY}`,
+        Authorization: Basic ${process.env.SHIPDAY_API_KEY},
       },
     };
 
@@ -592,7 +619,7 @@ const changeParcelStatus = async (
   if (nextOrder < currentOrder) {
     throw new AppError(
       400,
-      `Cannot move from ${currentDeliveryStatus} to ${newDeliveryStatus}.`
+      Cannot move from ${currentDeliveryStatus} to ${newDeliveryStatus}.
     );
   }
 
@@ -600,7 +627,7 @@ const changeParcelStatus = async (
   if (nextOrder === currentOrder) {
     throw new AppError(
       400,
-      `Parcel is already in ${newDeliveryStatus} status.`
+      Parcel is already in ${newDeliveryStatus} status.
     );
   }
 
@@ -637,3 +664,4 @@ export const ParcelService = {
   getAllParcels,
   changeParcelStatus,
 };
+

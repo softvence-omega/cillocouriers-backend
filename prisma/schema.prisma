@@ -168,6 +168,7 @@ model AddParcel {
   user           User           @relation(fields: [marchentId], references: [id])
   customar       Customer       @relation(fields: [customerId], references: [id])
   Notification   Notification[]
+  Payment        Payment?
 }
 
 model Notification {
@@ -255,4 +256,18 @@ model Comment {
   updatedAt DateTime @updatedAt
 
   @@map("comments")
+}
+
+model Payment {
+  id              String    @id @default(cuid())
+  email           String
+  amount          Int
+  currency        String    @default("AUD") // Change default currency to AUD
+  stripeSessionId String    @unique
+  paymentIntentId String?
+  status          String?
+  parcelId        String    @unique
+  parcel          AddParcel @relation(fields: [parcelId], references: [id])
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 }
