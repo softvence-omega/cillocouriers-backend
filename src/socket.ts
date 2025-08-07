@@ -17,7 +17,6 @@ export const initSocket = (server: HTTPServer) => {
       console.log("🔴 Socket disconnected:", socket.id);
     });
   });
-
   return io;
 };
 
