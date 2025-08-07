@@ -2,7 +2,12 @@ import status from "http-status";
 import catchAsync from "../../../shared/catchAsync";
 import sendResponse from "../../../shared/sendResponse";
 import { Request, Response } from "express";
-import { ParcelService, sendParcelToShipday } from "./parcel.service";
+import {
+  createShippoOrder,
+  getShipdayOrder,
+  ParcelService,
+  sendParcelToShipday,
+} from "./parcel.service";
 import config from "../../../config";
 import Stripe from "stripe";
 import prisma from "../../../shared/prisma";
@@ -113,13 +118,15 @@ export const handleStripeWebhook = async (
     const parcelData = JSON.parse(
       session.metadata?.parcelData || "{}"
     ) as TParcelData;
+    const shippoData = JSON.parse(session.metadata?.shippoData || "{}") as any;
+    // console.log("shippoData From Webhook", shippoData);
 
     const marchentId = session.metadata?.marchentId;
 
-    console.log("parcelDataInWebhook:", parcelData);
+    // console.log("parcelDataInWebhook:", parcelData);
 
     // ✅ Validate required metadata fields
-    if (!parcelId || !email || !amountStr) {
+    if (!parcelId || !email || !amountStr || !shippoData) {
       console.warn("❌ Missing metadata in Stripe session:");
       res.status(400).json({ error: "Missing required metadata" });
       return;
@@ -129,6 +136,43 @@ export const handleStripeWebhook = async (
     const paymentIntentId = session.payment_intent?.toString() || null;
 
     try {
+      const findShippoOrderData = await prisma.shippoOrder.findFirst({
+        where: {
+          order_number: `#${parcelId}`,
+        },
+        include: {
+          line_items: true,
+        },
+      });
+
+      console.log(findShippoOrderData);
+
+      const sendShippoData = {
+        to_address: {
+          name: findShippoOrderData?.to_name,
+          street1: findShippoOrderData?.to_street1,
+          city: findShippoOrderData?.to_city,
+          state: findShippoOrderData?.to_state,
+          zip: findShippoOrderData?.to_zip,
+          country: findShippoOrderData?.to_country,
+          email: findShippoOrderData?.to_email,
+          phone: findShippoOrderData?.to_phone,
+        },
+        line_items: findShippoOrderData?.line_items,
+        order_number: findShippoOrderData?.order_number,
+        order_status: findShippoOrderData?.order_status,
+        shipping_cost: findShippoOrderData?.shipping_cost,
+        shipping_cost_currency: findShippoOrderData?.shipping_cost_currency,
+        placed_at: findShippoOrderData?.placed_at,
+        shipping_method: findShippoOrderData?.shipping_method,
+        total_price: findShippoOrderData?.total_price,
+        currency: findShippoOrderData?.currency,
+        weight: findShippoOrderData?.total_weight,
+        weight_unit: findShippoOrderData?.weight_unit,
+      };
+      // console.log("shippoDataFromDb", findShippoOrderData);
+      console.log("sendToShippo", sendShippoData);
+
       // ✅ Save Payment
       await prisma.payment.create({
         data: {
@@ -151,10 +195,20 @@ export const handleStripeWebhook = async (
       const shipdayResponse = await sendParcelToShipday(parcelData);
       console.log("shipdayResponse:", shipdayResponse);
 
+      const shipdayOrderInfo = await getShipdayOrder(parcelId);
+      console.log("trakingLink: ", shipdayOrderInfo?.[0].trackingLink);
+
+      if (!shipdayOrderInfo || shipdayOrderInfo.length === 0) {
+        throw new Error("Shipday order info not found");
+      }
+
+      await createShippoOrder(sendShippoData);
+
       const shipdayStatus = await prisma.addParcel.update({
         where: { id: parcelId },
         data: {
           shipdayOrderId: shipdayResponse?.orderId,
+          trackingLink: shipdayOrderInfo?.[0].trackingLink,
         },
       });
 
