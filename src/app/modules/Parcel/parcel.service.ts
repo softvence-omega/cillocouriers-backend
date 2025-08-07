@@ -291,7 +291,7 @@ await prisma.shippoOrder.create({
   data: {
     // Flatten to_address
     to_name: shippoData.to_address.name,
-    to_street1: shippoData.to_address.street1!,
+    to_street1: "",
     to_city: shippoData.to_address.city!,
     to_state: shippoData.to_address.state!,
     to_zip: shippoData.to_address.zip!,
