@@ -103,7 +103,6 @@ export const handleStripeWebhook = async (
     res.status(400).send(`Webhook Error: ${err.message}`);
     return;
   }
-
   // ✅ Move usage *after* successful assignment
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
