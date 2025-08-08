@@ -65,7 +65,7 @@ const createStripeCheckoutSession = async (
 };
 
 export const sendParcelToShipday = async (parcelData: any) => {
-  // console.log({ parcelData });
+  console.log({ parcelData });
   try {
     // Send the data to Shipday API
     const response = await axios.post(
@@ -97,7 +97,6 @@ export const sendParcelToShipday = async (parcelData: any) => {
 };
 
 export const createShippoOrder = async (orderData: any) => {
-  
   const shippoAPIUrl = "https://api.goshippo.com/orders/";
 
   try {
@@ -287,48 +286,50 @@ const addParcel = async (data: AddParcel & { addressId: string }) => {
       weight_unit: "kg",
     };
 
-await prisma.shippoOrder.create({
-  data: {
-    // Flatten to_address
-    to_name: shippoData.to_address.name,
-    to_street1: "",
-    to_city: shippoData.to_address.city!,
-    to_state: shippoData.to_address.state!,
-    to_zip: shippoData.to_address.zip!,
-    to_country: shippoData.to_address.country,
-    to_email: shippoData.to_address.email,
-    to_phone: shippoData.to_address.phone,
-    to_company: shippoData.to_address.company ?? "",
+    await prisma.shippoOrder.create({
+      data: {
+        // Flatten to_address
+        to_name: shippoData.to_address.name,
+        to_street1: "",
+        to_city: shippoData.to_address.city!,
+        to_state: shippoData.to_address.state!,
+        to_zip: shippoData.to_address.zip!,
+        to_country: shippoData.to_address.country,
+        to_email: shippoData.to_address.email,
+        to_phone: shippoData.to_address.phone,
+        to_company: shippoData.to_address.company ?? "",
 
-    // Order fields
-    placed_at: new Date(shippoData.placed_at),
-    order_number: shippoData.order_number,
-    order_status: shippoData.order_status,
-    shipping_cost: shippoData.shipping_cost,
-    shipping_cost_currency: shippoData.shipping_cost_currency,
-    shipping_method: shippoData.shipping_method,
-    subtotal_price: shippoData.subtotal_price,
-    total_price: shippoData.total_price,
-    total_tax: shippoData.total_tax,
-    currency: shippoData.currency,
-    total_weight: shippoData.weight,
-    weight_unit: shippoData.weight_unit,
+        // Order fields
+        placed_at: new Date(shippoData.placed_at),
+        order_number: shippoData.order_number,
+        order_status: shippoData.order_status,
+        shipping_cost: shippoData.shipping_cost,
+        shipping_cost_currency: shippoData.shipping_cost_currency,
+        shipping_method: shippoData.shipping_method,
+        subtotal_price: shippoData.subtotal_price,
+        total_price: shippoData.total_price,
+        total_tax: shippoData.total_tax,
+        currency: shippoData.currency,
+        total_weight: shippoData.weight,
+        weight_unit: shippoData.weight_unit,
 
-    // Related line items
-    line_items: {
-      create: shippoData.line_items.map((item) => ({
-        quantity: item.quantity,
-        sku: item.sku ?? "",
-        title: item.title,
-        total_price: item.total_price,
-        currency: item.currency,
-        weight: typeof item.weight === "string" ? parseFloat(item.weight) : item.weight,
-        weight_unit: item.weight_unit,
-      })),
-    },
-  },
-});
-
+        // Related line items
+        line_items: {
+          create: shippoData.line_items.map((item) => ({
+            quantity: item.quantity,
+            sku: item.sku ?? "",
+            title: item.title,
+            total_price: item.total_price,
+            currency: item.currency,
+            weight:
+              typeof item.weight === "string"
+                ? parseFloat(item.weight)
+                : item.weight,
+            weight_unit: item.weight_unit,
+          })),
+        },
+      },
+    });
 
     // const shippoData = {
     //   to_address: {
@@ -369,7 +370,6 @@ await prisma.shippoOrder.create({
     //   weight: data?.weight,
     //   weight_unit: "kg",
     // };
-
 
     const paymentData = {
       email: user?.email,
