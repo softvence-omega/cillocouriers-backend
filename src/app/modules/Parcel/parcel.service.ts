@@ -385,7 +385,7 @@ await prisma.shippoOrder.create({
       // shippoData,
       user?.id
     );
-    // console.log({ response });
+    console.log({ response });
 
     return { paymentUrl: response };
   });
