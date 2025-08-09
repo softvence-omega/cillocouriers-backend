@@ -401,40 +401,84 @@ const getAllParcels = async (options: any) => {
 
   const whereConditions = buildDynamicFilters(options, ParcelSearchableFields);
 
-  const [result, total] = await Promise.all([
-    prisma.addParcel.findMany({
-      where: {
-        isDeleted: false,
-        ...whereConditions,
-      },
-      skip,
-      take: limit,
-      orderBy: {
-        [sortBy]: sortOrder,
-      },
-      include: {
-        user: {
-          select: {
-            name: true,
-            businessName: true,
-            address_Pickup_Location: true,
-            phone: true,
-            email: true,
-            role: true,
-            status: true,
+  const [result, total, totalPending, todayPending, totalDelivered, todayDelivered] =
+    await Promise.all([
+      // Main data
+      prisma.addParcel.findMany({
+        where: {
+          isDeleted: false,
+          ...whereConditions,
+        },
+        skip,
+        take: limit,
+        orderBy: {
+          [sortBy]: sortOrder,
+        },
+        include: {
+          user: {
+            select: {
+              name: true,
+              businessName: true,
+              address_Pickup_Location: true,
+              phone: true,
+              email: true,
+              role: true,
+              status: true,
+            },
+          },
+          customar: true,
+          address: true,
+        },
+      }),
+
+      // Total count
+      prisma.addParcel.count({
+        where: {
+          isDeleted: false,
+          ...whereConditions,
+        },
+      }),
+
+      // Total pending
+      prisma.addParcel.count({
+        where: {
+          isDeleted: false,
+          deliveryStatus: "PENDING",
+        },
+      }),
+
+      // Today pending
+      prisma.addParcel.count({
+        where: {
+          isDeleted: false,
+          deliveryStatus: "PENDING",
+          createdAt: {
+            gte: startOfDay(new Date()),
+            lte: endOfDay(new Date()),
           },
         },
-        customar: true,
-        address: true,
-      },
-    }),
-    prisma.addParcel.count({
-      where: {
-        isDeleted: false,
-        ...whereConditions,
-      },
-    }),
-  ]);
+      }),
+
+      // Total delivered
+      prisma.addParcel.count({
+        where: {
+          isDeleted: false,
+          deliveryStatus: "DELIVERED",
+        },
+      }),
+
+      // Today delivered
+      prisma.addParcel.count({
+        where: {
+          isDeleted: false,
+          deliveryStatus: "DELIVERED",
+          createdAt: {
+            gte: startOfDay(new Date()),
+            lte: endOfDay(new Date()),
+          },
+        },
+      }),
+    ]);
 
   const meta = {
     page,
@@ -443,12 +487,19 @@ const getAllParcels = async (options: any) => {
     totalPages: Math.ceil(total / limit),
   };
 
+  const cardData = {
+    totalPending,
+    todayPending,
+    totalDelivered,
+    todayDelivered,
+  };
+
   return {
     data: result,
     meta,
+    cardData,
   };
 };
-
 const myParcels = async (marchentId: string, options: any) => {
   const { page, limit, skip, sortBy, sortOrder } =
     paginationHelper.calculatePagination(options);
@@ -546,16 +597,7 @@ const myParcels = async (marchentId: string, options: any) => {
 
 const getSingleParcel = async (id: string) => {
   try {
-    // First, fetch the parcel details from Shipday API
-    const shipdayResponse = await axios.get(
-      `https://api.shipday.com/orders/${id}`,
-      {
-        headers: {
-          Authorization: `Basic ${process.env.SHIPDAY_API_KEY}`, // Use the correct authorization method
-          Accept: "application/json",
-        },
-      }
-    );
+
 
     // Now fetch the parcel data from the Prisma database
     const result = await prisma.addParcel.findFirst({
@@ -575,12 +617,7 @@ const getSingleParcel = async (id: string) => {
     }
 
     // Return both the Shipday API response and the database parcel data
-    return [
-      {
-        shipdayOrderResponse: shipdayResponse.data[0], // Assuming the Shipday API returns an array, and we need the first element
-        databaseResponse: result, // Parcel data from the Prisma database
-      },
-    ];
+    return result;
   } catch (error: any) {
     console.error(
       "Error fetching Shipday orders:",
