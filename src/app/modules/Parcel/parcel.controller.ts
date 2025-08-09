@@ -118,15 +118,15 @@ export const handleStripeWebhook = async (
     const parcelData = JSON.parse(
       session.metadata?.parcelData || "{}"
     ) as TParcelData;
-    const shippoData = JSON.parse(session.metadata?.shippoData || "{}") as any;
+    // const shippoData = JSON.parse(session.metadata?.shippoData || "{}") as any;
     // console.log("shippoData From Webhook", shippoData);
 
     const marchentId = session.metadata?.marchentId;
 
-    // console.log("parcelDataInWebhook:", parcelData);
+    console.log("parcelDataInWebhook:", parcelData);
 
     // ✅ Validate required metadata fields
-    if (!parcelId || !email || !amountStr || !shippoData) {
+    if (!parcelId || !email || !amountStr || !parcelData) {
       console.warn("❌ Missing metadata in Stripe session:");
       res.status(400).json({ error: "Missing required metadata" });
       return;
@@ -182,15 +182,17 @@ export const handleStripeWebhook = async (
           stripeSessionId: session.id,
           paymentIntentId,
           status: "succeeded",
-          parcel: { connect: { id: parcelId } },
+          parcelId,
         },
       });
 
       // ✅ Update Parcel
-      await prisma.addParcel.update({
+      const parcelUpdate = await prisma.addParcel.update({
         where: { id: parcelId },
         data: { paymentStatus: "PAID" },
       });
+
+      console.log('parcelUpdateToPaid: ', parcelUpdate)
 
       const shipdayResponse = await sendParcelToShipday(parcelData);
       console.log("shipdayResponse:", shipdayResponse);
