@@ -18,6 +18,8 @@ import {
   TPaymentData,
   TShipdayParcelData,
 } from "../../../types/parcel";
+import { startOfDay, endOfDay } from "date-fns";
+
 let io: SocketIOServer;
 export const stripe = new Stripe(config.stripe_secret_key as string);
 export const initParcelService = (socket: SocketIOServer) => {
@@ -453,6 +455,7 @@ const myParcels = async (marchentId: string, options: any) => {
 
   const whereConditions = buildDynamicFilters(options, ParcelSearchableFields);
 
+  // Main query total count
   const total = await prisma.addParcel.count({
     where: {
       marchentId,
@@ -461,6 +464,7 @@ const myParcels = async (marchentId: string, options: any) => {
     },
   });
 
+  // Result data
   const result = await prisma.addParcel.findMany({
     where: {
       marchentId,
@@ -478,6 +482,47 @@ const myParcels = async (marchentId: string, options: any) => {
     },
   });
 
+  // Card Data calculations
+  const [totalPending, todayPending, totalDelivered, todayDelivered] =
+    await Promise.all([
+      prisma.addParcel.count({
+        where: {
+          marchentId,
+          isDeleted: false,
+          deliveryStatus: "PENDING",
+        },
+      }),
+      prisma.addParcel.count({
+        where: {
+          marchentId,
+          isDeleted: false,
+          deliveryStatus: "PENDING",
+          createdAt: {
+            gte: startOfDay(new Date()),
+            lte: endOfDay(new Date()),
+          },
+        },
+      }),
+      prisma.addParcel.count({
+        where: {
+          marchentId,
+          isDeleted: false,
+          deliveryStatus: "DELIVERED",
+        },
+      }),
+      prisma.addParcel.count({
+        where: {
+          marchentId,
+          isDeleted: false,
+          deliveryStatus: "DELIVERED",
+          createdAt: {
+            gte: startOfDay(new Date()),
+            lte: endOfDay(new Date()),
+          },
+        },
+      }),
+    ]);
+
   const meta = {
     page,
     limit,
@@ -485,9 +530,17 @@ const myParcels = async (marchentId: string, options: any) => {
     totalPages: Math.ceil(total / limit),
   };
 
+  const cardData = {
+    totalPending,
+    todayPending,
+    totalDelivered,
+    todayDelivered,
+  };
+
   return {
     data: result,
     meta,
+    cardData,
   };
 };
 
