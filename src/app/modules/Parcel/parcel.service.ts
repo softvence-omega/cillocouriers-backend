@@ -769,7 +769,7 @@ const changeParcelStatus = async (
 };
 
 const calcualteParcelPrice = async (data: any) => {
-  console.log("calculate price....", data);
+  // console.log("calculate price....", data);
   // Step 4: Calculate Parcel Price
   const totalPrice = calculateParcelPrice(
     data.weight_kg,
@@ -778,7 +778,7 @@ const calcualteParcelPrice = async (data: any) => {
     data.height_cm
   );
 
-  console.log(totalPrice, "total price");
+  // console.log(totalPrice, "total price");
   const apiKey = process.env.GEOCODING_API_KEY as string; // Replace with your geocoding API key
   const countryCode = "au"; // Optional: Default is 'au'
 
