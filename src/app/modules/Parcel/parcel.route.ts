@@ -23,6 +23,11 @@ router.get(
   ParcelController.getSingleParcel
 );
 router.post(
+  "/calculate-parcel-price",
+  // RoleValidation(USER_ROLE.marchant, USER_ROLE.admin),
+  ParcelController.calcualteParcelPrice
+);
+router.post(
   "/add-parcel",
   RoleValidation(USER_ROLE.marchant),
   ParcelController.addParcel

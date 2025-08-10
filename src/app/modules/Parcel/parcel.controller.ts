@@ -88,6 +88,18 @@ const changeParcelStatus = catchAsync(
     });
   }
 );
+const calcualteParcelPrice = catchAsync(
+  async (req: Request & { user?: any }, res) => {
+    const result = await ParcelService.calcualteParcelPrice(req.body);
+
+    sendResponse(res, {
+      statusCode: status.OK,
+      success: true,
+      message: "Parcel price calculated successfully.",
+      data: result,
+    });
+  }
+);
 
 export const handleStripeWebhook = async (
   req: Request,
@@ -192,7 +204,7 @@ export const handleStripeWebhook = async (
         data: { paymentStatus: "PAID" },
       });
 
-      console.log('parcelUpdateToPaid: ', parcelUpdate)
+      console.log("parcelUpdateToPaid: ", parcelUpdate);
 
       const shipdayResponse = await sendParcelToShipday(parcelData);
       console.log("shipdayResponse:", shipdayResponse);
@@ -241,7 +253,6 @@ export const handleStripeWebhook = async (
   res.status(200).json({ received: true });
 };
 
-
 export const ParcelController = {
   addParcel,
   myParcels,
@@ -250,4 +261,5 @@ export const ParcelController = {
   getAllParcels,
   changeParcelStatus,
   handleStripeWebhook,
+  calcualteParcelPrice
 };
