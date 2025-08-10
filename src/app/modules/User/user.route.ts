@@ -12,7 +12,7 @@ router.get(
 );
 router.get(
   "/my-profile-info",
-  RoleValidation(USER_ROLE.admin,  USER_ROLE.marchant),
+  RoleValidation(USER_ROLE.admin, USER_ROLE.marchant),
   UserDataController.myProfileInfo
 );
 router.patch(
@@ -25,6 +25,17 @@ router.patch(
   "/change-status/:id",
   RoleValidation(USER_ROLE.admin),
   UserDataController.changeUserStatus
+);
+router.patch(
+  "/update-profile",
+  RoleValidation(USER_ROLE.admin, USER_ROLE.marchant),
+  UserDataController.updateProfile
+);
+
+router.patch(
+  "/change-password",
+  RoleValidation(USER_ROLE.admin, USER_ROLE.marchant),
+  UserDataController.changePassword
 );
 router.delete(
   "/delete-user/:id",
