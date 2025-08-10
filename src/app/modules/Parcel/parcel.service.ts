@@ -787,7 +787,6 @@ const calcualteParcelPrice = async (data: any) => {
     countryCode,
     apiKey
   );
-
   // console.log(pickupLocation,'pickup location');
   const deliveryLocation = await getLocationByPostalCode(
     data.postcodes.to,
