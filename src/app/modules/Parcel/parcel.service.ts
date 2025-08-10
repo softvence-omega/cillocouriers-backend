@@ -140,262 +140,6 @@ export async function getShipdayOrder(orderNumber: string) {
   }
 }
 
-// const addParcel = async (data: AddParcel & { addressId: string }) => {
-//   const prismaTransaction = await prisma.$transaction(async (tx) => {
-//     // Step 1: Fetch Customer
-//     const customer = await tx.customer.findFirst({
-//       where: {
-//         id: data.customerId,
-//         marchentId: data.marchentId,
-//       },
-//     });
-
-//     if (!customer) {
-//       throw new AppError(status.NOT_FOUND, "Customer not found!");
-//     }
-
-//     // Step 2: Fetch Address
-//     const address = await tx.address.findFirst({
-//       where: {
-//         id: data.addressId,
-//         marchentId: data.marchentId,
-//       },
-//     });
-
-//     if (!address) {
-//       throw new AppError(status.NOT_FOUND, "Address not found!");
-//     }
-
-//     // Step 3: Fetch User (Restaurant)
-//     const user = await prisma.user.findFirst({
-//       where: {
-//         id: data.marchentId,
-//       },
-//     });
-
-//     if (!user) {
-//       throw new AppError(status.NOT_FOUND, "User not found!");
-//     }
-
-//     // Step 4: Calculate Parcel Price
-//     const totalPrice = calculateParcelPrice(
-//       data.weight,
-//       data.length,
-//       data.width,
-//       data.height
-//     );
-
-//     // Step 5: Generate Tracking ID
-//     const trackingId = await generateUniqueTrackingId(7); // TRK-XXXXXXX
-
-//     const apiKey = process.env.GEOCODING_API_KEY as string; // Replace with your geocoding API key
-//     const countryCode = "au"; // Optional: Default is 'au'
-
-//     // const pickupLocation = await getLocationByPostalCode(address.postalCode);
-
-//     // Step 6: Get Pickup Location
-//     const pickupLocation = await getLocationByPostalCode(
-//       address.postalCode,
-//       countryCode,
-//       apiKey
-//     );
-
-//     // console.log({ pickupLocation });
-//     const formattedPickupLocation = pickupLocation;
-
-//     // Step 7: Get Delivery Location
-//     const deliverLocation = await getLocationByPostalCode(
-//       customer.postalCode,
-//       countryCode,
-//       apiKey
-//     );
-
-//     // console.log({ deliverLocation });
-//     const formattedDeliverLocation = deliverLocation;
-//     // Step 8: Create Parcel Record
-//     const result = await tx.addParcel.create({
-//       data: {
-//         marchentId: data.marchentId,
-//         customerId: data.customerId,
-//         addressId: data.addressId,
-//         type: data.type,
-//         name: data.name,
-//         weight: data.weight,
-//         length: data.length,
-//         width: data.width,
-//         height: data.height,
-//         description: data.description,
-//         trackingId: trackingId,
-//         amount: totalPrice,
-//       },
-//     });
-
-//     // Prepare Data for Shipday
-//     const parcelData: TShipdayParcelData = {
-//       orderNumber: result.id,
-//       customerName: customer.Name,
-//       customerAddress: formattedPickupLocation,
-//       customerEmail: customer.Email,
-//       customerPhoneNumber: customer.Phone,
-//       restaurantName: user?.businessName || "Default Restaurant Name",
-//       restaurantAddress: formattedDeliverLocation,
-//       restaurantPhoneNumber: user?.phone || "1234567890",
-//       totalOrderCost: totalPrice,
-//     };
-
-//     const location = await getFormattedLocation(
-//       customer.postalCode,
-//       "au",
-//       process.env.GEOCODING_API_KEY as string
-//     );
-
-//     // console.log({location});
-
-//     const shippoData = {
-//       to_address: {
-//         name: customer.Name,
-//         street1: location?.street,
-//         city: location?.city,
-//         state: location?.state,
-//         zip: location?.postalCode,
-//         country: "AU",
-//         email: customer.Email,
-//         phone: customer.Phone,
-//         company: user?.businessName,
-//       },
-//       line_items: [
-//         {
-//           quantity: 1,
-//           sku: result.trackingId,
-//           title: data.name,
-//           total_price: totalPrice.toFixed(2),
-//           currency: "AUD",
-//           weight: data?.weight,
-//           weight_unit: "kg",
-//         },
-//       ],
-//       placed_at: new Date().toISOString(),
-//       order_number: `#${result.id}`,
-//       order_status: "PAID",
-//       shipping_cost: totalPrice.toFixed(2),
-//       shipping_cost_currency: "AUD",
-//       shipping_method: "Standard Delivery",
-//       subtotal_price: totalPrice.toFixed(2),
-//       total_price: (totalPrice + parseFloat(totalPrice.toFixed(2))).toFixed(2),
-//       total_tax: "0.00",
-//       currency: "AUD",
-//       weight: parseFloat(data?.weight),
-//       weight_unit: "kg",
-//     };
-
-//     await prisma.shippoOrder.create({
-//       data: {
-//         // Flatten to_address
-//         to_name: shippoData.to_address.name,
-//         to_street1: "",
-//         to_city: shippoData.to_address.city!,
-//         to_state: shippoData.to_address.state!,
-//         to_zip: shippoData.to_address.zip!,
-//         to_country: shippoData.to_address.country,
-//         to_email: shippoData.to_address.email,
-//         to_phone: shippoData.to_address.phone,
-//         to_company: shippoData.to_address.company ?? "",
-
-//         // Order fields
-//         placed_at: new Date(shippoData.placed_at),
-//         order_number: shippoData.order_number,
-//         order_status: shippoData.order_status,
-//         shipping_cost: shippoData.shipping_cost,
-//         shipping_cost_currency: shippoData.shipping_cost_currency,
-//         shipping_method: shippoData.shipping_method,
-//         subtotal_price: shippoData.subtotal_price,
-//         total_price: shippoData.total_price,
-//         total_tax: shippoData.total_tax,
-//         currency: shippoData.currency,
-//         total_weight: shippoData.weight,
-//         weight_unit: shippoData.weight_unit,
-
-//         // Related line items
-//         line_items: {
-//           create: shippoData.line_items.map((item) => ({
-//             quantity: item.quantity,
-//             sku: item.sku ?? "",
-//             title: item.title,
-//             total_price: item.total_price,
-//             currency: item.currency,
-//             weight:
-//               typeof item.weight === "string"
-//                 ? parseFloat(item.weight)
-//                 : item.weight,
-//             weight_unit: item.weight_unit,
-//           })),
-//         },
-//       },
-//     });
-
-//     // const shippoData = {
-//     //   to_address: {
-//     //     city: location?.city,
-//     //     company: user?.businessName,
-//     //     country: "AU",
-//     //     email: customer.Email,
-//     //     name: customer.Name,
-//     //     phone: customer.Phone,
-//     //     state: location?.state,
-//     //     street1: location?.street,
-
-//     //     zip: location?.postalCode,
-//     //   },
-//     //   line_items: [
-//     //     {
-//     //       quantity: 1,
-//     //       sku: result.trackingId,
-//     //       title: data.name,
-//     //       // total_price: totalPrice.toFixed(2),
-//     //       // currency: "AUD",
-//     //       weight: data?.weight,
-//     //       weight_unit: "kg",
-//     //     },
-//     //   ],
-//     //   placed_at: new Date().toISOString(),
-//     //   order_number: `#${result.id}`,
-//     //   order_status: "PAID",
-//     //   shipping_cost: totalPrice.toFixed(2),
-//     //   // shipping_cost_currency: "AUD",
-//     //   // shipping_method: "Standard Delivery",
-//     //   // subtotal_price: totalPrice.toFixed(2),
-//     //   // total_price: (totalPrice + parseFloat(totalPrice.toFixed(2))).toFixed(
-//     //   //   2
-//     //   // ),
-//     //   // total_tax: "0.00",
-//     //   currency: "AUD",
-//     //   weight: data?.weight,
-//     //   weight_unit: "kg",
-//     // };
-
-//     const paymentData = {
-//       email: user?.email,
-//       amount: totalPrice,
-//       parcelId: result.id,
-//     };
-
-//     // console.log({paymentData})
-
-//     const response = await createStripeCheckoutSession(
-//       paymentData,
-//       parcelData,
-//       // shippoData,
-//       user?.id
-//     );
-//     console.log({ response });
-
-//     return { paymentUrl: response };
-//   });
-
-//   return prismaTransaction;
-// };
-
-
 const addParcel = async (data: AddParcel & { addressId: string }) => {
   const prismaTransaction = await prisma.$transaction(async (tx) => {
     // Step 1: Fetch Customer
@@ -597,92 +341,96 @@ const addParcel = async (data: AddParcel & { addressId: string }) => {
   return prismaTransaction;
 };
 
-
-
 const getAllParcels = async (options: any) => {
   const { page, limit, skip, sortBy, sortOrder } =
     paginationHelper.calculatePagination(options);
 
   const whereConditions = buildDynamicFilters(options, ParcelSearchableFields);
 
-  const [result, total, totalPending, todayPending, totalDelivered, todayDelivered] =
-    await Promise.all([
-      // Main data
-      prisma.addParcel.findMany({
-        where: {
-          isDeleted: false,
-          ...whereConditions,
-        },
-        skip,
-        take: limit,
-        orderBy: {
-          [sortBy]: sortOrder,
-        },
-        include: {
-          user: {
-            select: {
-              name: true,
-              businessName: true,
-              address_Pickup_Location: true,
-              phone: true,
-              email: true,
-              role: true,
-              status: true,
-            },
-          },
-          customar: true,
-          address: true,
-        },
-      }),
-
-      // Total count
-      prisma.addParcel.count({
-        where: {
-          isDeleted: false,
-          ...whereConditions,
-        },
-      }),
-
-      // Total pending
-      prisma.addParcel.count({
-        where: {
-          isDeleted: false,
-          deliveryStatus: "PENDING",
-        },
-      }),
-
-      // Today pending
-      prisma.addParcel.count({
-        where: {
-          isDeleted: false,
-          deliveryStatus: "PENDING",
-          createdAt: {
-            gte: startOfDay(new Date()),
-            lte: endOfDay(new Date()),
+  const [
+    result,
+    total,
+    totalPending,
+    todayPending,
+    totalDelivered,
+    todayDelivered,
+  ] = await Promise.all([
+    // Main data
+    prisma.addParcel.findMany({
+      where: {
+        isDeleted: false,
+        ...whereConditions,
+      },
+      skip,
+      take: limit,
+      orderBy: {
+        [sortBy]: sortOrder,
+      },
+      include: {
+        user: {
+          select: {
+            name: true,
+            businessName: true,
+            address_Pickup_Location: true,
+            phone: true,
+            email: true,
+            role: true,
+            status: true,
           },
         },
-      }),
+        customar: true,
+        address: true,
+      },
+    }),
 
-      // Total delivered
-      prisma.addParcel.count({
-        where: {
-          isDeleted: false,
-          deliveryStatus: "DELIVERED",
-        },
-      }),
+    // Total count
+    prisma.addParcel.count({
+      where: {
+        isDeleted: false,
+        ...whereConditions,
+      },
+    }),
 
-      // Today delivered
-      prisma.addParcel.count({
-        where: {
-          isDeleted: false,
-          deliveryStatus: "DELIVERED",
-          createdAt: {
-            gte: startOfDay(new Date()),
-            lte: endOfDay(new Date()),
-          },
+    // Total pending
+    prisma.addParcel.count({
+      where: {
+        isDeleted: false,
+        deliveryStatus: "PENDING",
+      },
+    }),
+
+    // Today pending
+    prisma.addParcel.count({
+      where: {
+        isDeleted: false,
+        deliveryStatus: "PENDING",
+        createdAt: {
+          gte: startOfDay(new Date()),
+          lte: endOfDay(new Date()),
         },
-      }),
-    ]);
+      },
+    }),
+
+    // Total delivered
+    prisma.addParcel.count({
+      where: {
+        isDeleted: false,
+        deliveryStatus: "DELIVERED",
+      },
+    }),
+
+    // Today delivered
+    prisma.addParcel.count({
+      where: {
+        isDeleted: false,
+        deliveryStatus: "DELIVERED",
+        createdAt: {
+          gte: startOfDay(new Date()),
+          lte: endOfDay(new Date()),
+        },
+      },
+    }),
+  ]);
 
   const meta = {
     page,
@@ -801,8 +549,6 @@ const myParcels = async (marchentId: string, options: any) => {
 
 const getSingleParcel = async (id: string) => {
   try {
-
-
     // Now fetch the parcel data from the Prisma database
     const result = await prisma.addParcel.findFirst({
       where: {
@@ -1022,6 +768,42 @@ const changeParcelStatus = async (
   return updatedParcel;
 };
 
+const calcualteParcelPrice = async (data: any) => {
+  console.log("calculate price....", data);
+  // Step 4: Calculate Parcel Price
+  const totalPrice = calculateParcelPrice(
+    data.weight_kg,
+    data.length_cm,
+    data.width_cm,
+    data.height_cm
+  );
+
+  console.log(totalPrice, "total price");
+  const apiKey = process.env.GEOCODING_API_KEY as string; // Replace with your geocoding API key
+  const countryCode = "au"; // Optional: Default is 'au'
+
+  const pickupLocation = await getLocationByPostalCode(
+    data.postcodes.from,
+    countryCode,
+    apiKey
+  );
+
+  // console.log(pickupLocation,'pickup location');
+  const deliveryLocation = await getLocationByPostalCode(
+    data.postcodes.to,
+    countryCode,
+    apiKey
+  );
+
+  // console.log(deliveryLocation,'delivery location...');
+
+  return {
+    totalPrice,
+    pickupLocation,
+    deliveryLocation
+  }
+};
+
 export const ParcelService = {
   addParcel,
   myParcels,
@@ -1029,4 +811,5 @@ export const ParcelService = {
   deleteParcel,
   getAllParcels,
   changeParcelStatus,
+  calcualteParcelPrice,
 };
