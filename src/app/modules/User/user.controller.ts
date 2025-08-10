@@ -12,15 +12,10 @@ const getAllUsers = catchAsync(async (req, res) => {
     success: true,
     message: "All users fetched successfully.",
     data: result,
-
   });
 });
 
-
 const myProfileInfo = catchAsync(async (req: Request & { user?: any }, res) => {
-
-
-
   const result = await UserDataServices.myProfileInfo(req.user.id);
 
   sendResponse(res, {
@@ -71,11 +66,38 @@ const deleteUser = catchAsync(async (req, res) => {
     data: result,
   });
 });
+const updateProfile = catchAsync(async (req: Request & { user?: any }, res) => {
+  const { id } = req.params;
+
+  const result = await UserDataServices.updateProfile(req.user.id, req.body);
+
+  //   console.log(req.user);
+  sendResponse(res, {
+    statusCode: status.OK,
+    success: true,
+    message: "Profile Updated Successfuly.",
+    data: result,
+  });
+});
+const changePassword = catchAsync(async (req: Request & { user?: any }, res) => {
+  const result = await UserDataServices.changePassword(req.user.id, req.body);
+
+  //   console.log(req.user);
+  sendResponse(res, {
+    statusCode: status.OK,
+    success: true,
+    message: "Password Changed Successfuly.",
+    data: result,
+  });
+});
+
 
 export const UserDataController = {
   getAllUsers,
   changeRole,
   changeUserStatus,
   deleteUser,
-  myProfileInfo
+  myProfileInfo,
+  updateProfile,
+  changePassword
 };
