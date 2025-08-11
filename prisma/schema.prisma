@@ -32,21 +32,10 @@ enum ParcelType {
 enum ParcelStatus {
   PENDING
   ACTIVE
-  STARTED
-  ALREADY_DELIVERED
-  FAILED_DELIVERY
-  INCOMPLETE
+  PICKED_UP
+  EADY_TO_DELIVER
+  COMPLETE
 }
-
-enum DeliveryStatus {
-  PENDING
-  AWAITING_PICKUP
-  IN_TRANSIT
-  DELIVERED
-  NOT_DELIVERED
-  INCOMPLETE
-}
-
 enum PaymentStatus {
   PENDING
   PAID
@@ -157,7 +146,6 @@ model AddParcel {
   shipdayOrderId Int? // ✅ Nullable Number
   trackingLink String?
   status         ParcelStatus   @default(PENDING)
-  deliveryStatus DeliveryStatus @default(PENDING)
   amount         Float?
   paymentStatus  PaymentStatus  @default(PENDING)
   createdAt      DateTime       @default(now())

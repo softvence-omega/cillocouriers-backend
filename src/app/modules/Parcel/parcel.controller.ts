@@ -73,21 +73,21 @@ const deleteParcel = catchAsync(async (req: Request & { user?: any }, res) => {
     data: result,
   });
 });
-const changeParcelStatus = catchAsync(
-  async (req: Request & { user?: any }, res) => {
-    const result = await ParcelService.changeParcelStatus(
-      req.params.id,
-      req.body
-    );
+// const changeParcelStatus = catchAsync(
+//   async (req: Request & { user?: any }, res) => {
+//     const result = await ParcelService.changeParcelStatus(
+//       req.params.id,
+//       req.body
+//     );
 
-    sendResponse(res, {
-      statusCode: status.OK,
-      success: true,
-      message: "Parcel status changed successfully.",
-      data: result,
-    });
-  }
-);
+//     sendResponse(res, {
+//       statusCode: status.OK,
+//       success: true,
+//       message: "Parcel status changed successfully.",
+//       data: result,
+//     });
+//   }
+// );
 const calcualteParcelPrice = catchAsync(
   async (req: Request & { user?: any }, res) => {
     const result = await ParcelService.calcualteParcelPrice(req.body);
@@ -259,7 +259,7 @@ export const ParcelController = {
   getSingleParcel,
   deleteParcel,
   getAllParcels,
-  changeParcelStatus,
+  // changeParcelStatus,
   handleStripeWebhook,
   calcualteParcelPrice
 };

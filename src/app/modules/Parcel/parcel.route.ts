@@ -2,7 +2,7 @@ import express from "express";
 import { USER_ROLE } from "@prisma/client";
 
 import RoleValidation from "../../middlewares/RoleValidation";
-import { ParcelController } from "./parcel.controller";
+import {  ParcelController } from "./parcel.controller";
 const router = express.Router();
 
 router.get(
@@ -27,6 +27,8 @@ router.post(
   // RoleValidation(USER_ROLE.marchant, USER_ROLE.admin),
   ParcelController.calcualteParcelPrice
 );
+
+
 router.post(
   "/add-parcel",
   RoleValidation(USER_ROLE.marchant),
@@ -39,10 +41,10 @@ router.delete(
   ParcelController.deleteParcel
 );
 
-router.patch(
-  "/change-status/:id",
-  RoleValidation(USER_ROLE.admin),
-  ParcelController.changeParcelStatus
-)
+// router.patch(
+//   "/change-status/:id",
+//   RoleValidation(USER_ROLE.admin),
+//   ParcelController.changeParcelStatus
+// )
 
 export const ParcelRoutes = router;
