@@ -14,7 +14,7 @@ async function main() {
   const io = initSocket(httpServer); // ✅ init socket server
   initParcelService(io);         
   
-  cron.schedule("*/5 * * * * *", async () => {
+  cron.schedule("*/5 * * * *", async () => {
     console.log("Running Shipday polling job...");
     try {
       await updateOrdersFromShipday();
