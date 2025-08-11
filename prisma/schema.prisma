@@ -36,6 +36,7 @@ enum ParcelStatus {
   READY_TO_DELIVER
   COMPLETE
   STARTED
+  NOT_ASSIGNED
 }
 
 enum PaymentStatus {
