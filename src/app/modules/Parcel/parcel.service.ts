@@ -1,4 +1,4 @@
-import { AddParcel, DeliveryStatus, ParcelStatus } from "@prisma/client";
+import { AddParcel,  ParcelStatus } from "@prisma/client";
 import prisma from "../../../shared/prisma";
 import AppError from "../../Errors/AppError";
 import status from "http-status";
@@ -14,11 +14,11 @@ import { getFormattedLocation } from "../../../helpers/getFormattedLocation";
 import Stripe from "stripe";
 import config from "../../../config";
 import {
-  TParcelData,
   TPaymentData,
   TShipdayParcelData,
 } from "../../../types/parcel";
 import { startOfDay, endOfDay } from "date-fns";
+import { Request } from "express";
 
 let io: SocketIOServer;
 export const stripe = new Stripe(config.stripe_secret_key as string);
@@ -395,7 +395,7 @@ const getAllParcels = async (options: any) => {
     prisma.addParcel.count({
       where: {
         isDeleted: false,
-        deliveryStatus: "PENDING",
+        status: "PENDING",
       },
     }),
 
@@ -403,7 +403,7 @@ const getAllParcels = async (options: any) => {
     prisma.addParcel.count({
       where: {
         isDeleted: false,
-        deliveryStatus: "PENDING",
+        status: "PENDING",
         createdAt: {
           gte: startOfDay(new Date()),
           lte: endOfDay(new Date()),
@@ -415,7 +415,7 @@ const getAllParcels = async (options: any) => {
     prisma.addParcel.count({
       where: {
         isDeleted: false,
-        deliveryStatus: "DELIVERED",
+        status: "COMPLETE",
       },
     }),
 
@@ -423,7 +423,7 @@ const getAllParcels = async (options: any) => {
     prisma.addParcel.count({
       where: {
         isDeleted: false,
-        deliveryStatus: "DELIVERED",
+        status: "COMPLETE",
         createdAt: {
           gte: startOfDay(new Date()),
           lte: endOfDay(new Date()),
@@ -492,14 +492,14 @@ const myParcels = async (marchentId: string, options: any) => {
         where: {
           marchentId,
           isDeleted: false,
-          deliveryStatus: "PENDING",
+          status: "PENDING",
         },
       }),
       prisma.addParcel.count({
         where: {
           marchentId,
           isDeleted: false,
-          deliveryStatus: "PENDING",
+          status: "PENDING",
           createdAt: {
             gte: startOfDay(new Date()),
             lte: endOfDay(new Date()),
@@ -510,14 +510,14 @@ const myParcels = async (marchentId: string, options: any) => {
         where: {
           marchentId,
           isDeleted: false,
-          deliveryStatus: "DELIVERED",
+          status: "COMPLETE",
         },
       }),
       prisma.addParcel.count({
         where: {
           marchentId,
           isDeleted: false,
-          deliveryStatus: "DELIVERED",
+          status: "COMPLETE",
           createdAt: {
             gte: startOfDay(new Date()),
             lte: endOfDay(new Date()),
@@ -605,168 +605,206 @@ const deleteParcel = async (id: string, marchentId: string) => {
   return null;
 };
 
-const VALID_STATUSES = [
-  "ACTIVE",
-  "NOT_ASSIGNED",
-  "NOT_ACCEPTED",
-  "NOT_STARTED_YET",
-  "STARTED",
-  "PICKED_UP",
-  "READY_TO_DELIVER",
-  "ALREADY_DELIVERED",
-  "FAILED_DELIVERY",
-  "INCOMPLETE",
-];
+// const VALID_STATUSES = [
+//   "ACTIVE",
+//   "NOT_ASSIGNED",
+//   "NOT_ACCEPTED",
+//   "NOT_STARTED_YET",
+//   "STARTED",
+//   "PICKED_UP",
+//   "READY_TO_DELIVER",
+//   "ALREADY_DELIVERED",
+//   "FAILED_DELIVERY",
+//   "INCOMPLETE",
+// ];
 
-const updateShipdayStatus = async (orderId: string, status: string) => {
-  // Ensure status is valid
-  if (!VALID_STATUSES.includes(status)) {
-    throw new AppError(400, `Invalid Shipday status: ${status}`);
-  }
+// const updateShipdayStatus = async (orderId: string, status: string) => {
+//   // Ensure status is valid
+//   if (!VALID_STATUSES.includes(status)) {
+//     throw new AppError(400, `Invalid Shipday status: ${status}`);
+//   }
 
-  try {
-    const response = await axios.put(
-      `https://api.shipday.com/orders/${orderId}/status`,
-      { status }, // Only status is needed
-      {
-        headers: {
-          Authorization: `Basic ${process.env.SHIPDAY_API_KEY}`, // Must be valid
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
-      }
-    );
+//   try {
+//     const response = await axios.put(
+//       `https://api.shipday.com/orders/${orderId}/status`,
+//       { status }, // Only status is needed
+//       {
+//         headers: {
+//           Authorization: `Basic ${process.env.SHIPDAY_API_KEY}`, // Must be valid
+//           Accept: "application/json",
+//           "Content-Type": "application/json",
+//         },
+//       }
+//     );
 
-    // console.log("✅ Shipday Sync Success:", response.data);
-    return response.data;
-  } catch (error: any) {
-    if (error.response) {
-      console.error("❌ Shipday Sync Failed:", error.response.data);
-      console.error("Status Code:", error.response.status);
-    } else {
-      console.error("❌ Network or unknown error:", error.message);
-    }
+//     // console.log("✅ Shipday Sync Success:", response.data);
+//     return response.data;
+//   } catch (error: any) {
+//     if (error.response) {
+//       console.error("❌ Shipday Sync Failed:", error.response.data);
+//       console.error("Status Code:", error.response.status);
+//     } else {
+//       console.error("❌ Network or unknown error:", error.message);
+//     }
 
-    throw new AppError(500, "Shipday sync failed.");
-  }
-};
+//     throw new AppError(500, "Shipday sync failed.");
+//   }
+// };
 
-const getOrderId = async (id: string) => {
-  try {
-    const url = `https://api.shipday.com/orders/${id}`;
-    const options = {
-      method: "GET",
-      headers: {
-        accept: "application/json",
-        Authorization: `Basic ${process.env.SHIPDAY_API_KEY}`,
-      },
-    };
+// const getOrderId = async (id: string) => {
+//   try {
+//     const url = `https://api.shipday.com/orders/${id}`;
+//     const options = {
+//       method: "GET",
+//       headers: {
+//         accept: "application/json",
+//         Authorization: `Basic ${process.env.SHIPDAY_API_KEY}`,
+//       },
+//     };
 
-    const res = await fetch(url, options);
-    const json = await res.json();
-    return json[0].orderId;
-  } catch (err) {
-    console.error(err);
-  }
-};
+//     const res = await fetch(url, options);
+//     const json = await res.json();
+//     return json[0].orderId;
+//   } catch (err) {
+//     console.error(err);
+//   }
+// };
 
-const DeliveryStatusOrder: Record<DeliveryStatus, number> = {
-  PENDING: 1, // Initial state, parcel has not been processed
-  AWAITING_PICKUP: 2, // Parcel is waiting for pickup
-  IN_TRANSIT: 3, // Parcel is on the way
-  INCOMPLETE: 4, // Parcel delivery was not fully completed (e.g., partially delivered or delayed)
-  DELIVERED: 5, // Parcel has been successfully delivered
-  NOT_DELIVERED: 6, // Parcel could not be delivered (final status)
-};
 
-// ----------------------------------
-// STATUS MAPPING:
-// কোন deliveryStatus দিলে parcel.status কী হবে
-// ----------------------------------
-const DeliveryToParcelStatusMap: Partial<Record<DeliveryStatus, ParcelStatus>> =
-  {
-    PENDING: ParcelStatus.PENDING, // PENDING → PENDING (not yet processed)
-    AWAITING_PICKUP: ParcelStatus.ACTIVE, // AWAITING_PICKUP → ACTIVE (waiting to be picked up)
-    IN_TRANSIT: ParcelStatus.STARTED, // IN_TRANSIT → STARTED (on the way)
-    DELIVERED: ParcelStatus.ALREADY_DELIVERED, // DELIVERED → ALREADY_DELIVERED (successfully delivered)
-    NOT_DELIVERED: ParcelStatus.FAILED_DELIVERY, // NOT_DELIVERED → FAILED_DELIVERY (could not be delivered)
-    INCOMPLETE: ParcelStatus.INCOMPLETE, // INCOMPLETE → INCOMPLETE (parcel delivery was not fully completed)
+
+// export const processShipdayWebhook = async (req: Request) => {
+//   const tokenFromHeader = req.headers["token"];
+//   const expectedToken = process.env.SHIPDAY_WEBHOOK_TOKEN;
+
+//   if (tokenFromHeader !== expectedToken) {
+//     const error: any = new Error("Unauthorized");
+//     error.statusCode = 401;
+//     throw error;
+//   }
+
+//   const payload = req.body;
+//   const shipdayOrderId = payload.order?.id;
+
+//   if (!shipdayOrderId) {
+//     const error: any = new Error("Missing Shipday order id in payload");
+//     error.statusCode = 400;
+//     throw error;
+//   }
+
+//   const parcel = await prisma.addParcel.findUnique({
+//     where: { id: shipdayOrderId },
+//   });
+
+//   console.log(parcel, "parcel");
+
+//   if (!parcel) {
+//     const error: any = new Error(
+//       `Parcel with Shipday orderId ${shipdayOrderId} not found`
+//     );
+//     error.statusCode = 404;
+//     throw error;
+//   }
+
+//   const newParcelStatus = mapShipdayOrderStatusToParcelStatus(
+//     payload.order_status
+//   );
+
+//   await prisma.addParcel.update({
+//     where: { id: parcel.id },
+//     data: {
+//       status: newParcelStatus,
+//     },
+//   });
+// };
+
+// export const mapShipdayOrderStatusToParcelStatus = (
+//   shipdayStatus: string
+// ): ParcelStatus => {
+//   switch (shipdayStatus) {
+//     case "NOT_ASSIGNED":
+//     case "NOT_ACCEPTED":
+//     case "NOT_STARTED_YET":
+//       return ParcelStatus.PENDING;
+
+//     case "STARTED":
+//       return ParcelStatus.STARTED;
+
+//     case "PICKED_UP":
+//     case "READY_TO_DELIVER":
+//       return ParcelStatus.ACTIVE;
+
+//     case "ALREADY_DELIVERED":
+//       return ParcelStatus.ALREADY_DELIVERED;
+
+//     case "FAILED_DELIVERY":
+//       return ParcelStatus.FAILED_DELIVERY;
+
+//     case "INCOMPLETE":
+//       return ParcelStatus.INCOMPLETE;
+
+//     default:
+//       // Unknown status গুলোর জন্য default হিসেবে PENDING দাও
+//       return ParcelStatus.PENDING;
+//   }
+// };
+
+export const updateOrdersFromShipday = async () => {
+  const url = "https://api.shipday.com/orders";
+  const options = {
+    method: "GET",
+    headers: {
+      accept: "application/json",
+      Authorization: `Basic ${process.env.SHIPDAY_API_KEY}`, // API key দিলে রাখো
+    },
   };
 
-const changeParcelStatus = async (
-  id: string,
-  data: { deliveryStatus: DeliveryStatus }
-) => {
-  // Step 1: Find parcel
-  const parcel = await prisma.addParcel.findUnique({
-    where: { id, isDeleted: false },
-  });
+  try {
+    const res = await fetch(url, options);
+    if (!res.ok) {
+      throw new Error(`Shipday API error: ${res.status} ${res.statusText}`);
+    }
 
-  if (!parcel) {
-    throw new AppError(404, "Parcel not found!");
+    const data = await res.json();
+
+    // ধরছি Shipday response এ 'orders' নামে array আছে
+    const orders = data;
+
+    // console.log({orders});
+
+    // console.log("Fetched orders:", orders.length);
+
+    for (const order of orders) {
+      const shipdayOrderId = order.orderId;
+      const orderStatus = order.orderStatus.orderState;
+
+      console.log({orderStatus});
+
+     
+ 
+     const parcel = await prisma.addParcel.findFirst({
+      where:{
+        shipdayOrderId:shipdayOrderId
+      }
+     })
+
+    //  console.log(parcel,"parcel");
+
+      if (parcel) {
+        // const newParcelStatus = mapShipdayOrderStatusToParcelStatus(orderStatus);
+        // console.log(newParcelStatus);
+
+        // await prisma.addParcel.update({
+        //   where: { id: parcel.id },
+        //   data: { status: orderStatus },
+        // });
+      }
+      
+    }
+  } catch (error) {
+    console.error("Error fetching Shipday orders:", error);
   }
-
-  const currentDeliveryStatus = parcel.deliveryStatus as DeliveryStatus;
-
-  // Step 2: Prevent changes after DELIVERED
-  if (currentDeliveryStatus === DeliveryStatus.DELIVERED) {
-    throw new AppError(
-      400,
-      "Parcel is already delivered. Cannot change status."
-    );
-  }
-
-  // Step 3: Validate and sanitize the new status
-  const newDeliveryStatus = data.deliveryStatus.trim() as DeliveryStatus;
-
-  // Step 4: Validate if the new status is a valid enum value
-  if (!Object.values(DeliveryStatus).includes(newDeliveryStatus)) {
-    throw new AppError(400, "Invalid delivery status!");
-  }
-
-  // Step 5: Prevent backward status change
-  const currentOrder = DeliveryStatusOrder[currentDeliveryStatus];
-  const nextOrder = DeliveryStatusOrder[newDeliveryStatus];
-
-  if (nextOrder < currentOrder) {
-    throw new AppError(
-      400,
-      `Cannot move from ${currentDeliveryStatus} to ${newDeliveryStatus}.`
-    );
-  }
-
-  // Step 6: Prevent same status change
-  if (nextOrder === currentOrder) {
-    throw new AppError(
-      400,
-      `Parcel is already in ${newDeliveryStatus} status.`
-    );
-  }
-
-  // Step 7: Map DeliveryStatus to ParcelStatus
-  const updatedParcelStatus =
-    DeliveryToParcelStatusMap[newDeliveryStatus] ?? parcel.status;
-
-  // console.log({ updatedParcelStatus });
-
-  // Step 8: Update the parcel with the new delivery status
-  const updatedParcel = await prisma.addParcel.update({
-    where: { id },
-    data: {
-      deliveryStatus: newDeliveryStatus,
-      status: updatedParcelStatus, // Update Parcel Status based on DeliveryStatus
-    },
-  });
-
-  // Step 7: Sync with Shipday
-
-  const orderId = await getOrderId(id); // ফাংশন কল করে result পেতে হবে
-  // console.log({ orderId });
-
-  await updateShipdayStatus(orderId, updatedParcelStatus);
-
-  return updatedParcel;
 };
+
 
 const calcualteParcelPrice = async (data: any) => {
   // console.log("calculate price....", data);
@@ -799,8 +837,8 @@ const calcualteParcelPrice = async (data: any) => {
   return {
     totalPrice,
     pickupLocation,
-    deliveryLocation
-  }
+    deliveryLocation,
+  };
 };
 
 export const ParcelService = {
@@ -809,6 +847,6 @@ export const ParcelService = {
   getSingleParcel,
   deleteParcel,
   getAllParcels,
-  changeParcelStatus,
+  // changeParcelStatus,
   calcualteParcelPrice,
 };
