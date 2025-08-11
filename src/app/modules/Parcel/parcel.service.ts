@@ -287,9 +287,9 @@ const addParcel = async (data: AddParcel & { addressId: string }) => {
       data: {
         to_name: shippoData.to_address.name,
         to_street1: "",
-        to_city: shippoData.to_address.city!,
-        to_state: shippoData.to_address.state!,
-        to_zip: shippoData.to_address.zip!,
+        to_city: shippoData.to_address.city as string,
+        to_state: shippoData.to_address.state as string,
+        to_zip: shippoData.to_address.zip as string,
         to_country: shippoData.to_address.country,
         to_email: shippoData.to_address.email,
         to_phone: shippoData.to_address.phone,
@@ -777,6 +777,8 @@ export const updateOrdersFromShipday = async () => {
       const shipdayOrderId = order.orderId;
       const orderStatus = order.orderStatus.orderState;
 
+      console.log(order.orderStatus);
+
       console.log({orderStatus});
 
      
@@ -793,10 +795,10 @@ export const updateOrdersFromShipday = async () => {
         // const newParcelStatus = mapShipdayOrderStatusToParcelStatus(orderStatus);
         // console.log(newParcelStatus);
 
-        // await prisma.addParcel.update({
-        //   where: { id: parcel.id },
-        //   data: { status: orderStatus },
-        // });
+        await prisma.addParcel.update({
+          where: { id: parcel.id },
+          data: { status: orderStatus },
+        });
       }
       
     }

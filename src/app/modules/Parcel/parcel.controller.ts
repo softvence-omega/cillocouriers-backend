@@ -164,7 +164,7 @@ export const handleStripeWebhook = async (
           name: findShippoOrderData?.to_name,
           street1: findShippoOrderData?.to_street1,
           city: findShippoOrderData?.to_city,
-          state: findShippoOrderData?.to_state,
+          state: findShippoOrderData?.to_state || "",
           zip: findShippoOrderData?.to_zip,
           country: findShippoOrderData?.to_country,
           email: findShippoOrderData?.to_email,

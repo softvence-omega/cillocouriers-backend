@@ -33,9 +33,11 @@ enum ParcelStatus {
   PENDING
   ACTIVE
   PICKED_UP
-  EADY_TO_DELIVER
+  READY_TO_DELIVER
   COMPLETE
+  STARTED
 }
+
 enum PaymentStatus {
   PENDING
   PAID
@@ -128,6 +130,7 @@ model Customer {
   user      User        @relation(fields: [marchentId], references: [id])
   AddParcel AddParcel[]
 }
+
 model AddParcel {
   id             String         @id @default(uuid())
   marchentId     String
@@ -144,7 +147,7 @@ model AddParcel {
   notes          String?
   trackingId     String?        @unique
   shipdayOrderId Int? // ✅ Nullable Number
-  trackingLink String?
+  trackingLink   String?
   status         ParcelStatus   @default(PENDING)
   amount         Float?
   paymentStatus  PaymentStatus  @default(PENDING)
@@ -158,59 +161,57 @@ model AddParcel {
   Payment        Payment?
 }
 
-
 model ShippoOrder {
-  id                      String   @id @default(cuid())
+  id String @id @default(cuid())
 
   // to_address
-  to_name                 String
-  to_street1              String
-  to_city                 String
-  to_state                String
-  to_zip                  String
-  to_country              String
-  to_email                String
-  to_phone                String
-  to_company              String?
+  to_name    String
+  to_street1 String
+  to_city    String
+  to_state   String
+  to_zip     String
+  to_country String
+  to_email   String
+  to_phone   String
+  to_company String?
 
   // order fields
-  placed_at               DateTime
-  order_number            String
-  order_status            String
-  shipping_cost           String
-  shipping_cost_currency  String
-  shipping_method         String
-  subtotal_price          String
-  total_price             String
-  total_tax               String
-  currency                String
-  total_weight            Float
-  weight_unit             String
+  placed_at              DateTime
+  order_number           String
+  order_status           String
+  shipping_cost          String
+  shipping_cost_currency String
+  shipping_method        String
+  subtotal_price         String
+  total_price            String
+  total_tax              String
+  currency               String
+  total_weight           Float
+  weight_unit            String
 
   // line_items array
-  line_items              ShippoLineItem[]
+  line_items ShippoLineItem[]
 
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model ShippoLineItem {
-  id            String   @id @default(cuid())
-  quantity      Int
-  sku           String
-  title         String
-  total_price   String
-  currency      String
-  weight        Float
-  weight_unit   String
+  id          String @id @default(cuid())
+  quantity    Int
+  sku         String
+  title       String
+  total_price String
+  currency    String
+  weight      Float
+  weight_unit String
 
   // relation to order
-  orderId       String
-  order         ShippoOrder @relation(fields: [orderId], references: [id])
+  orderId String
+  order   ShippoOrder @relation(fields: [orderId], references: [id])
 
-  createdAt     DateTime @default(now())
+  createdAt DateTime @default(now())
 }
-
 
 model Notification {
   id        String    @id @default(uuid())
