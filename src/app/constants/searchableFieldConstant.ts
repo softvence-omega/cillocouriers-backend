@@ -13,6 +13,13 @@ export const ParcelSearchableFields: string[] = [
   "description",
   "trackingId",
 ];
+export const getInTouchMessageSearchableFields: string[] = [
+  "name",
+  "number",
+  "email",
+];
+
+
 
 export const AddressSearchableFields: string[] = [
   "addressName",

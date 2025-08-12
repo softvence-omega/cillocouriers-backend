@@ -11,6 +11,7 @@ import { RestrictedUserRoutes } from "../modules/RestrictedUser/restrictedUser.r
 import { SupportRoutes } from "../modules/Support/support.route";
 import { CommentRoutes } from "../modules/Comments/comments.route";
 import { CarrierRoutes } from "../modules/Carrier/Carrier.route";
+import { GetInTouchRoutes } from "../modules/GetInTouch/getInTouch.route";
 
 const router = express.Router();
 
@@ -58,6 +59,10 @@ const moduleRoutes = [
   {
     path: "/carrier",
     route: CarrierRoutes,
+  },
+  {
+    path: "/get-in-touch",
+    route: GetInTouchRoutes,
   },
 ];
 
