@@ -777,9 +777,9 @@ export const updateOrdersFromShipday = async () => {
       const shipdayOrderId = order.orderId;
       const orderStatus = order.orderStatus.orderState;
 
-      console.log(order.orderStatus);
+      // console.log(order.orderStatus);
 
-      console.log({orderStatus});
+      // console.log({orderStatus});
 
      
  
