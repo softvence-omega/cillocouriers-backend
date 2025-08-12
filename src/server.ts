@@ -15,12 +15,12 @@ async function main() {
   initParcelService(io);         
   
   cron.schedule("*/5 * * * *", async () => {
-    console.log("Running Shipday polling job...");
+    // console.log("Running Shipday polling job...");
     try {
       await updateOrdersFromShipday();
-      console.log("Shipday polling job finished.");
+      // console.log("Shipday polling job finished.");
     } catch (error) {
-      console.error("Shipday polling job failed:", error);
+      // console.error("Shipday polling job failed:", error);
     }
   });// ✅ send to service
 }
