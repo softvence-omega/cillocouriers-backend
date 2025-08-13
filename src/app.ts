@@ -14,14 +14,13 @@ app.post(
   express.raw({ type: "application/json" }),
   ParcelController.handleStripeWebhook
 );
-app.use(
-  cors({
-    origin: ["http://localhost:5173", "https://unnig-courier.vercel.app"],
-    credentials: true,
-  })
-);
-
-
+// app.use(
+//   cors({
+//     origin: ["http://localhost:5173", "https://unnig-courier.vercel.app"],
+//     credentials: true,
+//   })
+// );
+app.use(cors());
 
 app.use(cookieParser());
 
