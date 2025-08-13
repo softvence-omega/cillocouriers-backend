@@ -16,10 +16,11 @@ app.post(
 );
 app.use(
   cors({
-    origin: ["http://localhost:5173", "*","https://unnig-couier.vercel.app"],
+    origin: ["http://localhost:5173", "https://unnig-courier.vercel.app"],
     credentials: true,
   })
 );
+
 app.use(cookieParser());
 
 // parser
