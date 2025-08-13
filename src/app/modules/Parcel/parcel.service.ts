@@ -1,4 +1,4 @@
-import { AddParcel,  ParcelStatus } from "@prisma/client";
+import { AddParcel, ParcelStatus } from "@prisma/client";
 import prisma from "../../../shared/prisma";
 import AppError from "../../Errors/AppError";
 import status from "http-status";
@@ -13,10 +13,7 @@ import axios from "axios";
 import { getFormattedLocation } from "../../../helpers/getFormattedLocation";
 import Stripe from "stripe";
 import config from "../../../config";
-import {
-  TPaymentData,
-  TShipdayParcelData,
-} from "../../../types/parcel";
+import { TPaymentData, TShipdayParcelData } from "../../../types/parcel";
 import { startOfDay, endOfDay } from "date-fns";
 import { Request } from "express";
 
@@ -341,31 +338,141 @@ const addParcel = async (data: AddParcel & { addressId: string }) => {
   return prismaTransaction;
 };
 
+// const getAllParcels = async (options: any) => {
+//   const { page, limit, skip, sortBy, sortOrder } =
+//     paginationHelper.calculatePagination(options);
+
+//   const whereConditions = buildDynamicFilters(options, ParcelSearchableFields);
+
+//   const [
+//     result,
+//     total,
+//     totalPending,
+//     todayPending,
+//     totalDelivered,
+//     todayDelivered,
+//   ] = await Promise.all([
+//     // Main data
+//     prisma.addParcel.findMany({
+//       where: {
+//         isDeleted: false,
+//         ...whereConditions,
+//       },
+//       skip,
+//       take: limit,
+//       orderBy: {
+//         [sortBy]: sortOrder,
+//       },
+//       include: {
+//         user: {
+//           select: {
+//             name: true,
+//             businessName: true,
+//             address_Pickup_Location: true,
+//             phone: true,
+//             email: true,
+//             role: true,
+//             status: true,
+//           },
+//         },
+//         customar: true,
+//         address: true,
+//       },
+//     }),
+
+//     // Total count
+//     prisma.addParcel.count({
+//       where: {
+//         isDeleted: false,
+//         ...whereConditions,
+//       },
+//     }),
+
+//     // Total pending
+//     prisma.addParcel.count({
+//       where: {
+//         isDeleted: false,
+//         status: "PENDING",
+//       },
+//     }),
+
+//     // Today pending
+//     prisma.addParcel.count({
+//       where: {
+//         isDeleted: false,
+//         status: "PENDING",
+//         createdAt: {
+//           gte: startOfDay(new Date()),
+//           lte: endOfDay(new Date()),
+//         },
+//       },
+//     }),
+
+//     // Total delivered
+//     prisma.addParcel.count({
+//       where: {
+//         isDeleted: false,
+//         status: "COMPLETE",
+//       },
+//     }),
+
+//     // Today delivered
+//     prisma.addParcel.count({
+//       where: {
+//         isDeleted: false,
+//         status: "COMPLETE",
+//         createdAt: {
+//           gte: startOfDay(new Date()),
+//           lte: endOfDay(new Date()),
+//         },
+//       },
+//     }),
+//   ]);
+
+//   const meta = {
+//     page,
+//     limit,
+//     total,
+//     totalPages: Math.ceil(total / limit),
+//   };
+
+//   const cardData = {
+//     totalPending,
+//     todayPending,
+//     totalDelivered,
+//     todayDelivered,
+//   };
+
+//   return {
+//     data: result,
+//     meta,
+//     cardData,
+//   };
+// };
+
+
 const getAllParcels = async (options: any) => {
   const { page, limit, skip, sortBy, sortOrder } =
     paginationHelper.calculatePagination(options);
 
   const whereConditions = buildDynamicFilters(options, ParcelSearchableFields);
 
+  const baseFilter = { isDeleted: false };
+
   const [
     result,
     total,
     totalPending,
-    todayPending,
-    totalDelivered,
-    todayDelivered,
+    totalNotAssigned,
+    todayNotAssigned,
+    totalReadyToDeliver,
+    todayReadyToDeliver,
   ] = await Promise.all([
-    // Main data
     prisma.addParcel.findMany({
-      where: {
-        isDeleted: false,
-        ...whereConditions,
-      },
+      where: { ...baseFilter, ...whereConditions },
       skip,
       take: limit,
-      orderBy: {
-        [sortBy]: sortOrder,
-      },
+      orderBy: { [sortBy]: sortOrder },
       include: {
         user: {
           select: {
@@ -383,27 +490,25 @@ const getAllParcels = async (options: any) => {
       },
     }),
 
-    // Total count
+    prisma.addParcel.count({
+      where: { ...baseFilter, ...whereConditions },
+    }),
+
+    prisma.addParcel.count({
+      where: { ...baseFilter, status: ParcelStatus.PENDING },
+    }),
+
     prisma.addParcel.count({
       where: {
-        isDeleted: false,
-        ...whereConditions,
+        ...baseFilter,
+        status: ParcelStatus.NOT_ASSIGNED,
       },
     }),
 
-    // Total pending
     prisma.addParcel.count({
       where: {
-        isDeleted: false,
-        status: "PENDING",
-      },
-    }),
-
-    // Today pending
-    prisma.addParcel.count({
-      where: {
-        isDeleted: false,
-        status: "PENDING",
+        ...baseFilter,
+        status: ParcelStatus.NOT_ASSIGNED,
         createdAt: {
           gte: startOfDay(new Date()),
           lte: endOfDay(new Date()),
@@ -411,19 +516,14 @@ const getAllParcels = async (options: any) => {
       },
     }),
 
-    // Total delivered
     prisma.addParcel.count({
-      where: {
-        isDeleted: false,
-        status: "COMPLETE",
-      },
+      where: { ...baseFilter, status: ParcelStatus.READY_TO_DELIVER },
     }),
 
-    // Today delivered
     prisma.addParcel.count({
       where: {
-        isDeleted: false,
-        status: "COMPLETE",
+        ...baseFilter,
+        status: ParcelStatus.READY_TO_DELIVER,
         createdAt: {
           gte: startOfDay(new Date()),
           lte: endOfDay(new Date()),
@@ -432,120 +532,71 @@ const getAllParcels = async (options: any) => {
     }),
   ]);
 
-  const meta = {
-    page,
-    limit,
-    total,
-    totalPages: Math.ceil(total / limit),
-  };
-
-  const cardData = {
-    totalPending,
-    todayPending,
-    totalDelivered,
-    todayDelivered,
-  };
-
   return {
     data: result,
-    meta,
-    cardData,
+    meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    cardData: {
+      totalPending,
+      totalNotAssigned,
+      todayNotAssigned,
+      totalReadyToDeliver,
+      todayReadyToDeliver,
+    },
   };
 };
+
+
+
 const myParcels = async (marchentId: string, options: any) => {
   const { page, limit, skip, sortBy, sortOrder } =
     paginationHelper.calculatePagination(options);
 
   const whereConditions = buildDynamicFilters(options, ParcelSearchableFields);
+  const baseFilter = { marchentId, isDeleted: false };
 
   // Main query total count
   const total = await prisma.addParcel.count({
-    where: {
-      marchentId,
-      isDeleted: false,
-      ...whereConditions,
-    },
+    where: { ...baseFilter, ...whereConditions },
   });
 
   // Result data
   const result = await prisma.addParcel.findMany({
-    where: {
-      marchentId,
-      isDeleted: false,
-      ...whereConditions,
-    },
+    where: { ...baseFilter, ...whereConditions },
     skip,
     take: limit,
-    orderBy: {
-      [sortBy]: sortOrder,
-    },
-    include: {
-      customar: true,
-      address: true,
-    },
+    orderBy: { [sortBy]: sortOrder },
+    include: { customar: true, address: true },
   });
 
   // Card Data calculations
-  const [totalPending, todayPending, totalDelivered, todayDelivered] =
+  const [totalPending, totalNotAssigned, todayNotAssigned, totalReadyToDeliver, todayReadyToDeliver] =
     await Promise.all([
+      prisma.addParcel.count({ where: { ...baseFilter, status: ParcelStatus.PENDING } }),
+      prisma.addParcel.count({ where: { ...baseFilter, status: ParcelStatus.NOT_ASSIGNED } }),
       prisma.addParcel.count({
         where: {
-          marchentId,
-          isDeleted: false,
-          status: "PENDING",
+          ...baseFilter,
+          status: ParcelStatus.NOT_ASSIGNED,
+          createdAt: { gte: startOfDay(new Date()), lte: endOfDay(new Date()) },
         },
       }),
+      prisma.addParcel.count({ where: { ...baseFilter, status: ParcelStatus.READY_TO_DELIVER } }),
       prisma.addParcel.count({
         where: {
-          marchentId,
-          isDeleted: false,
-          status: "PENDING",
-          createdAt: {
-            gte: startOfDay(new Date()),
-            lte: endOfDay(new Date()),
-          },
-        },
-      }),
-      prisma.addParcel.count({
-        where: {
-          marchentId,
-          isDeleted: false,
-          status: "COMPLETE",
-        },
-      }),
-      prisma.addParcel.count({
-        where: {
-          marchentId,
-          isDeleted: false,
-          status: "COMPLETE",
-          createdAt: {
-            gte: startOfDay(new Date()),
-            lte: endOfDay(new Date()),
-          },
+          ...baseFilter,
+          status: ParcelStatus.READY_TO_DELIVER,
+          createdAt: { gte: startOfDay(new Date()), lte: endOfDay(new Date()) },
         },
       }),
     ]);
 
-  const meta = {
-    page,
-    limit,
-    total,
-    totalPages: Math.ceil(total / limit),
-  };
-
-  const cardData = {
-    totalPending,
-    todayPending,
-    totalDelivered,
-    todayDelivered,
-  };
-
   return {
     data: result,
-    meta,
-    cardData,
+    meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    cardData: { totalPending, totalNotAssigned, todayNotAssigned, totalReadyToDeliver, todayReadyToDeliver },
   };
 };
+
 
 const getSingleParcel = async (id: string) => {
   try {
@@ -670,8 +721,6 @@ const deleteParcel = async (id: string, marchentId: string) => {
 //   }
 // };
 
-
-
 // export const processShipdayWebhook = async (req: Request) => {
 //   const tokenFromHeader = req.headers["token"];
 //   const expectedToken = process.env.SHIPDAY_WEBHOOK_TOKEN;
@@ -781,15 +830,13 @@ export const updateOrdersFromShipday = async () => {
 
       // console.log({orderStatus});
 
-     
- 
-     const parcel = await prisma.addParcel.findFirst({
-      where:{
-        shipdayOrderId:shipdayOrderId
-      }
-     })
+      const parcel = await prisma.addParcel.findFirst({
+        where: {
+          shipdayOrderId: shipdayOrderId,
+        },
+      });
 
-    //  console.log(parcel,"parcel");
+      //  console.log(parcel,"parcel");
 
       if (parcel) {
         // const newParcelStatus = mapShipdayOrderStatusToParcelStatus(orderStatus);
@@ -800,13 +847,11 @@ export const updateOrdersFromShipday = async () => {
           data: { status: orderStatus },
         });
       }
-      
     }
   } catch (error) {
     console.error("Error fetching Shipday orders:", error);
   }
 };
-
 
 const calcualteParcelPrice = async (data: any) => {
   // console.log("calculate price....", data);
