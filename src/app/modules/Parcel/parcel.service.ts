@@ -1,4 +1,4 @@
-import { AddParcel, ParcelStatus } from "@prisma/client";
+import { AddParcel, ParcelStatus, PaymentStatus } from "@prisma/client";
 import prisma from "../../../shared/prisma";
 import AppError from "../../Errors/AppError";
 import status from "http-status";
@@ -469,7 +469,7 @@ const getAllParcels = async (options: any) => {
     todayReadyToDeliver,
   ] = await Promise.all([
     prisma.addParcel.findMany({
-      where: { ...baseFilter, ...whereConditions },
+      where: { ...baseFilter, ...whereConditions , paymentStatus:PaymentStatus.PAID},
       skip,
       take: limit,
       orderBy: { [sortBy]: sortOrder },
