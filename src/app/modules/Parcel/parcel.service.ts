@@ -556,7 +556,7 @@ const myParcels = async (marchentId: string, options: any) => {
 
   // Main query total count
   const total = await prisma.addParcel.count({
-    where: { ...baseFilter, ...whereConditions },
+    where: { ...baseFilter, ...whereConditions ,paymentStatus:PaymentStatus.PAID},
   });
 
   // Result data
